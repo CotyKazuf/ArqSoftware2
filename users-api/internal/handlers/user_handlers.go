@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 
 	"users-api/internal/middleware"
@@ -41,62 +42,61 @@ type userResponse struct {
 // Register handles POST /users/register.
 func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		responses.WriteError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed")
+		responses.WriteError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed")
 		return
 	}
 
 	var req registerRequest
 	if err := decodeJSON(r, &req); err != nil {
-		responses.WriteError(w, http.StatusBadRequest, "bad_request", "Invalid request body")
+		responses.WriteError(w, http.StatusBadRequest, "INVALID_JSON", "Invalid request body")
 		return
 	}
 
 	user, err := h.service.Register(req.Name, req.Email, req.Password)
-	if errors.Is(err, services.ErrValidation) {
-		responses.WriteError(w, http.StatusBadRequest, "bad_request", "Name, email and password are required")
+	var valErr services.ValidationError
+	if errors.As(err, &valErr) {
+		responses.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", valErr.Error())
 		return
 	}
 	if errors.Is(err, services.ErrEmailAlreadyExists) {
-		responses.WriteError(w, http.StatusConflict, "email_exists", "Email is already registered")
+		responses.WriteError(w, http.StatusConflict, "EMAIL_ALREADY_EXISTS", "Email is already registered")
 		return
 	}
 	if err != nil {
-		responses.WriteError(w, http.StatusInternalServerError, "internal_error", "Could not create user")
+		log.Printf("register user: %v", err)
+		responses.WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Could not create user")
 		return
 	}
 
-	responses.WriteJSON(w, http.StatusCreated, map[string]interface{}{
-		"id":    user.ID,
-		"name":  user.Name,
-		"email": user.Email,
-		"role":  user.Role,
-	})
+	responses.WriteJSON(w, http.StatusCreated, sanitizeUser(user))
 }
 
 // Login handles POST /users/login.
 func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		responses.WriteError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed")
+		responses.WriteError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed")
 		return
 	}
 
 	var req loginRequest
 	if err := decodeJSON(r, &req); err != nil {
-		responses.WriteError(w, http.StatusBadRequest, "bad_request", "Invalid request body")
+		responses.WriteError(w, http.StatusBadRequest, "INVALID_JSON", "Invalid request body")
 		return
 	}
 
 	token, user, err := h.service.Login(req.Email, req.Password)
-	if errors.Is(err, services.ErrValidation) {
-		responses.WriteError(w, http.StatusBadRequest, "bad_request", "Email and password are required")
+	var valErr services.ValidationError
+	if errors.As(err, &valErr) {
+		responses.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", valErr.Error())
 		return
 	}
 	if errors.Is(err, services.ErrInvalidCredentials) {
-		responses.WriteError(w, http.StatusUnauthorized, "invalid_credentials", "Invalid email or password")
+		responses.WriteError(w, http.StatusUnauthorized, "AUTHENTICATION_FAILED", "Invalid email or password")
 		return
 	}
 	if err != nil {
-		responses.WriteError(w, http.StatusInternalServerError, "internal_error", "Could not login user")
+		log.Printf("login user: %v", err)
+		responses.WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Could not login user")
 		return
 	}
 
@@ -109,23 +109,24 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 // Me handles GET /users/me.
 func (h *UserHandler) Me(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		responses.WriteError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed")
+		responses.WriteError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed")
 		return
 	}
 
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
-		responses.WriteError(w, http.StatusUnauthorized, "auth_missing", "Missing authentication context")
+		responses.WriteError(w, http.StatusUnauthorized, "AUTHENTICATION_FAILED", "Missing authentication context")
 		return
 	}
 
 	user, err := h.service.GetByID(userID)
 	if errors.Is(err, repositories.ErrUserNotFound) {
-		responses.WriteError(w, http.StatusNotFound, "user_not_found", "User not found")
+		responses.WriteError(w, http.StatusNotFound, "USER_NOT_FOUND", "User not found")
 		return
 	}
 	if err != nil {
-		responses.WriteError(w, http.StatusInternalServerError, "internal_error", "Could not fetch user profile")
+		log.Printf("get profile: %v", err)
+		responses.WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Could not fetch user profile")
 		return
 	}
 

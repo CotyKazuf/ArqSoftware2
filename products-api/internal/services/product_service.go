@@ -26,11 +26,12 @@ type ProductService struct {
 
 // ValidationError represents a user-facing validation failure.
 type ValidationError struct {
-	Reason string
+	Code    string
+	Message string
 }
 
 func (e ValidationError) Error() string {
-	return e.Reason
+	return e.Message
 }
 
 // NewProductService wires a service with its dependencies.
@@ -203,16 +204,16 @@ var (
 
 func validateProductInput(input CreateProductInput) error {
 	if strings.TrimSpace(input.Name) == "" {
-		return ValidationError{Reason: "name is required"}
+		return ValidationError{Code: "VALIDATION_ERROR", Message: "name is required"}
 	}
 	if strings.TrimSpace(input.Descripcion) == "" {
-		return ValidationError{Reason: "descripcion is required"}
+		return ValidationError{Code: "VALIDATION_ERROR", Message: "descripcion is required"}
 	}
 	if input.Precio <= 0 {
-		return ValidationError{Reason: "precio must be greater than zero"}
+		return ValidationError{Code: "INVALID_FIELD_VALUE", Message: "precio must be greater than zero"}
 	}
 	if input.Stock < 0 {
-		return ValidationError{Reason: "stock must be zero or greater"}
+		return ValidationError{Code: "INVALID_FIELD_VALUE", Message: "stock must be zero or greater"}
 	}
 	if err := validateField("tipo", input.Tipo, allowedTipos); err != nil {
 		return err
@@ -227,11 +228,11 @@ func validateProductInput(input CreateProductInput) error {
 		return err
 	}
 	if strings.TrimSpace(input.Marca) == "" {
-		return ValidationError{Reason: "marca is required"}
+		return ValidationError{Code: "VALIDATION_ERROR", Message: "marca is required"}
 	}
 	for _, nota := range input.Notas {
 		if _, ok := allowedNotas[nota]; !ok {
-			return ValidationError{Reason: fmt.Sprintf("nota %s is not supported", nota)}
+			return ValidationError{Code: "INVALID_FIELD_VALUE", Message: fmt.Sprintf("nota %s is not supported", nota)}
 		}
 	}
 	return nil
@@ -240,10 +241,10 @@ func validateProductInput(input CreateProductInput) error {
 func validateField(name, value string, allowed map[string]struct{}) error {
 	value = strings.TrimSpace(value)
 	if value == "" {
-		return ValidationError{Reason: fmt.Sprintf("%s is required", name)}
+		return ValidationError{Code: "VALIDATION_ERROR", Message: fmt.Sprintf("%s is required", name)}
 	}
 	if _, ok := allowed[value]; !ok {
-		return ValidationError{Reason: fmt.Sprintf("%s has an invalid value", name)}
+		return ValidationError{Code: "INVALID_FIELD_VALUE", Message: fmt.Sprintf("%s has an invalid value", name)}
 	}
 	return nil
 }

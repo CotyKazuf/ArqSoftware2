@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
@@ -14,12 +15,18 @@ import (
 	"search-api/internal/handlers"
 	"search-api/internal/middleware"
 	"search-api/internal/rabbitmq"
+	"search-api/internal/responses"
 	"search-api/internal/services"
 	"search-api/internal/solr"
 )
 
 func main() {
 	cfg := config.Load()
+	rabbitHost := cfg.RabbitURL
+	if parsed, err := url.Parse(cfg.RabbitURL); err == nil {
+		rabbitHost = parsed.Host
+	}
+	log.Printf("search-api config: port=%s solr=%s core=%s memcached=%s rabbit_host=%s rabbit_queue=%s cache_ttl=%ds", cfg.ServerPort, cfg.SolrURL, cfg.SolrCore, cfg.MemcachedAddr, rabbitHost, cfg.RabbitQueue, cfg.CacheTTLSeconds)
 
 	cacheTTL := time.Duration(cfg.CacheTTLSeconds) * time.Second
 	memoryCache := cache.NewCCacheLayer(cfg.CacheMaxEntries)
@@ -54,13 +61,16 @@ func main() {
 	mux.Handle("/search/products", handlers.MethodHandler{Get: http.HandlerFunc(searchHandler.SearchProducts)})
 	mux.Handle("/search/cache/flush", authMiddleware(middleware.RequireAdmin(http.HandlerFunc(searchHandler.FlushCache))))
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
+		if r.Method != http.MethodGet {
+			responses.WriteError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed")
+			return
+		}
+		responses.WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 
 	server := &http.Server{
 		Addr:    ":" + cfg.ServerPort,
-		Handler: mux,
+		Handler: middleware.RequestLogger(mux),
 	}
 
 	go func() {

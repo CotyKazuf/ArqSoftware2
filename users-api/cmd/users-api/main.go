@@ -14,6 +14,7 @@ import (
 
 func main() {
 	cfg := config.Load()
+	log.Printf("users-api config: port=%s db_host=%s db_port=%s db_name=%s jwt_expiration=%dmin", cfg.ServerPort, cfg.DBHost, cfg.DBPort, cfg.DBName, cfg.JWTExpirationMinutes)
 
 	db, err := database.Init(cfg)
 	if err != nil {
@@ -38,7 +39,7 @@ func main() {
 	addr := ":" + cfg.ServerPort
 	log.Printf("users-api listening on %s", addr)
 
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	if err := http.ListenAndServe(addr, middleware.RequestLogger(mux)); err != nil {
 		log.Fatalf("server error: %v", err)
 	}
 }

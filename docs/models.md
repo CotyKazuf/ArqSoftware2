@@ -1,41 +1,59 @@
 # Modelos de datos
 
-## Usuarios (MySQL)
-- Tabla: `users`
-- Campos:
-  - `id`: entero sin signo, clave primaria, autoincremental.
-  - `name`: `varchar(255)`, requerido.
-  - `email`: `varchar(255)`, requerido, unico (indice unico).
-  - `password_hash`: `varchar(255)`, requerido, almacena el hash bcrypt.
-  - `role`: `varchar(50)`, requerido, valores esperados `normal` (por defecto) o `admin`.
-  - `created_at`: marca de tiempo de creacion (GORM).
-  - `updated_at`: marca de tiempo de ultima actualizacion (GORM).
-- Notas:
-  - Se crea un usuario admin si no existe (email configurable, por defecto `admin@aromas.com`) usando la contrasena indicada por `ADMIN_DEFAULT_PASSWORD`.
-  - Las contrasenas siempre se almacenan como hash bcrypt, nunca en texto plano.
+## Usuarios – MySQL (`users`)
+| Campo | Tipo aproximado | Descripción | Restricciones |
+|-------|-----------------|-------------|---------------|
+| `id` | `INT UNSIGNED` | Identificador autoincremental asignado por MySQL/GORM. | `PRIMARY KEY`, `AUTO_INCREMENT`. |
+| `name` | `VARCHAR(255)` | Nombre completo del usuario. | `NOT NULL`. |
+| `email` | `VARCHAR(255)` | Email usado como usuario de login y claim en el JWT. | `NOT NULL`, `UNIQUE`. |
+| `password_hash` | `VARCHAR(255)` | Hash bcrypt generado al registrarse. | `NOT NULL`. Nunca se guarda la contraseña en texto plano. |
+| `role` | `VARCHAR(50)` | Rol lógico (`normal` por defecto o `admin`). | `NOT NULL`. Validado en la aplicación. |
+| `created_at` | `DATETIME` | Fecha de creación (set por GORM). | `NOT NULL`. |
+| `updated_at` | `DATETIME` | Última actualización (set por GORM). | `NOT NULL`. |
 
-## Productos (MongoDB)
-- Coleccion: `products`
-- Campos:
-  - `_id`: `ObjectID` (bson) / `id` (json string).
-  - `name`: `string`, requerido.
-  - `descripcion`: `string`, requerido.
-  - `precio`: `float64`, requerido y mayor a 0.
-  - `stock`: `int`, requerido y mayor o igual a 0.
-  - `tipo`: `string`, valores permitidos `floral`, `citrico`, `fresco`, `amaderado`.
-  - `estacion`: `string`, valores `verano`, `otono`, `invierno`, `primavera`.
-  - `ocasion`: `string`, valores `dia`, `noche`.
-  - `notas`: `[]string`, lista de notas olfativas (`bergamota`, `rosa`, `pera`, `menta`, `lavanda`, `sandalo`, `vainilla`, `caramelo`, `eucalipto`, `coco`, `jazmin`, `mandarina`, `amaderado`, `gengibre`, `pachuli`, `cardamomo`).
-  - `genero`: `string`, valores `hombre`, `mujer`, `unisex`.
-  - `marca`: `string`, requerido.
-  - `created_at`: `time.Time`, set por el servicio.
-  - `updated_at`: `time.Time`, set por el servicio.
-- Notas:
-  - Todos los campos string se exponen en JSON en minusculas para facilitar el consumo desde frontend/solr.
-  - Las operaciones de creacion, edicion y borrado requieren usuarios `admin`.
+Notas:
+- El `users-api` valida campos y genera hashes con `bcrypt` antes de persistir. 
+- Durante el arranque se asegura un usuario admin configurable (`ADMIN_EMAIL` + `ADMIN_DEFAULT_PASSWORD`).
 
-## Productos (Solr - indice de busqueda)
-- Core: `products-core` creado automaticamente via `solr-precreate`.
-- Campos indexados: mismos campos del modelo Mongo (`id`, `name`, `descripcion`, `precio`, `stock`, `tipo`, `estacion`, `ocasion`, `notas`, `genero`, `marca`, `created_at`, `updated_at`).
-- Los documentos se sincronizan desde `products-api` via eventos RabbitMQ (`product.created`, `product.updated`, `product.deleted`).
-- `search-api` consulta Solr con filtros por `tipo`, `estacion`, `ocasion`, `genero`, `marca` y texto libre (`q`), y cachea las respuestas en CCache (in-memory) y Memcached (distribuido).
+## Productos – MongoDB (`products`)
+| Campo | Tipo aproximado | Descripción / uso | Validaciones |
+|-------|-----------------|-------------------|--------------|
+| `_id` / `id` | `ObjectID` / `string` | Identificador del documento. Se expone como string hexadecimal. | Generado por Mongo. |
+| `name` | `string` | Nombre comercial del perfume. | Obligatorio, `strings.TrimSpace`. |
+| `descripcion` | `string` | Descripción corta / notas destacadas. | Obligatoria. |
+| `precio` | `float64` | Precio final. | `> 0`. |
+| `stock` | `int` | Stock disponible. | `>= 0`. |
+| `tipo` | `string` | Familia olfativa. | Uno de: `floral`, `citrico`, `fresco`, `amaderado`. |
+| `estacion` | `string` | Estación recomendada. | Uno de: `verano`, `otono`, `invierno`, `primavera`. |
+| `ocasion` | `string` | Uso sugerido. | `dia` o `noche`. |
+| `notas` | `[]string` | Lista de notas olfativas. | Cada nota debe pertenecer a: `bergamota`, `rosa`, `pera`, `menta`, `lavanda`, `sandalo`, `vainilla`, `caramelo`, `eucalipto`, `coco`, `jazmin`, `mandarina`, `amaderado`, `gengibre`, `pachuli`, `cardamomo`. |
+| `genero` | `string` | Público objetivo. | `hombre`, `mujer` o `unisex`. |
+| `marca` | `string` | Marca / casa de fragancias. | Obligatoria. |
+| `created_at` | `time.Time` | Fecha de creación establecida en el servicio. | Se guarda en UTC. |
+| `updated_at` | `time.Time` | Fecha de última modificación. | Actualizada en cada update. |
+
+Notas:
+- Todos los campos string se normalizan en minúsculas para búsquedas consistentes.
+- Los endpoints `POST/PUT/DELETE` obligan a que el solicitante tenga rol `admin`.
+
+## Índice de Solr – `products-core`
+`search-api` indexa documentos derivados de Mongo en el core `products-core`. Los campos relevantes son:
+
+| Campo | Tipo conceptual | Uso |
+|-------|-----------------|-----|
+| `id` | `string` | Identificador único. Coincide con `_id` de Mongo. |
+| `name` | `text_general` | Texto analizado para búsquedas por nombre y coincidencias parciales (`q`). |
+| `descripcion` | `text_general` | Alimenta la búsqueda libre (`q`). |
+| `precio` | `pdouble` | Permite agregar filtros o rangos en el futuro. |
+| `stock` | `pint` | Información de disponibilidad. |
+| `tipo` | `string` | Filtro facetado por familia olfativa (`tipo` query param). |
+| `estacion` | `string` | Filtro facetado para `estacion`. |
+| `ocasion` | `string` | Filtro para `ocasion`. |
+| `notas` | `strings` multivaluado | Permite filtrar/buscar por notas específicas. |
+| `genero` | `string` | Filtro por género. |
+| `marca` | `string` | Filtro por marca. |
+| `created_at` / `updated_at` | `pdate` | Útiles para ordenamiento y auditoría. |
+
+Sincronización:
+- `products-api` publica eventos `product.created`/`product.updated`/`product.deleted` en RabbitMQ.
+- `search-api` consume esos eventos, transforma a `models.ProductDocument` y ejecuta `IndexProduct` o `DeleteProduct` para mantener el índice alineado con Mongo.

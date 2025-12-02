@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -71,7 +72,7 @@ func (h *ProductHandler) ListProducts(w http.ResponseWriter, r *http.Request) {
 func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 	id, err := extractID(r.URL.Path)
 	if err != nil {
-		responses.WriteError(w, http.StatusBadRequest, "invalid_id", "Product ID is required")
+		responses.WriteError(w, http.StatusBadRequest, "INVALID_ID", "Product ID is required")
 		return
 	}
 
@@ -87,8 +88,8 @@ func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 // CreateProduct handles POST /products.
 func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 	var req productRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		responses.WriteError(w, http.StatusBadRequest, "invalid_body", "Invalid JSON payload")
+	if err := decodeJSON(r, &req); err != nil {
+		responses.WriteError(w, http.StatusBadRequest, "INVALID_JSON", "Invalid JSON payload")
 		return
 	}
 
@@ -105,13 +106,13 @@ func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 	id, err := extractID(r.URL.Path)
 	if err != nil {
-		responses.WriteError(w, http.StatusBadRequest, "invalid_id", "Product ID is required")
+		responses.WriteError(w, http.StatusBadRequest, "INVALID_ID", "Product ID is required")
 		return
 	}
 
 	var req productRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		responses.WriteError(w, http.StatusBadRequest, "invalid_body", "Invalid JSON payload")
+	if err := decodeJSON(r, &req); err != nil {
+		responses.WriteError(w, http.StatusBadRequest, "INVALID_JSON", "Invalid JSON payload")
 		return
 	}
 
@@ -128,7 +129,7 @@ func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 func (h *ProductHandler) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 	id, err := extractID(r.URL.Path)
 	if err != nil {
-		responses.WriteError(w, http.StatusBadRequest, "invalid_id", "Product ID is required")
+		responses.WriteError(w, http.StatusBadRequest, "INVALID_ID", "Product ID is required")
 		return
 	}
 
@@ -137,7 +138,7 @@ func (h *ProductHandler) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	responses.WriteJSON(w, http.StatusOK, map[string]string{"message": "product deleted"})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func parseInt(value string, def int) int {
@@ -181,14 +182,26 @@ func toInput(req productRequest) services.CreateProductInput {
 func handleServiceError(w http.ResponseWriter, err error) {
 	var valErr services.ValidationError
 	if errors.As(err, &valErr) {
-		responses.WriteError(w, http.StatusBadRequest, "invalid_input", valErr.Error())
+		code := valErr.Code
+		if code == "" {
+			code = "VALIDATION_ERROR"
+		}
+		responses.WriteError(w, http.StatusBadRequest, code, valErr.Error())
 		return
 	}
 
 	if errors.Is(err, repositories.ErrNotFound) {
-		responses.WriteError(w, http.StatusNotFound, "product_not_found", "Product not found")
+		responses.WriteError(w, http.StatusNotFound, "PRODUCT_NOT_FOUND", "Product not found")
 		return
 	}
 
-	responses.WriteError(w, http.StatusInternalServerError, "internal_error", "Unexpected error")
+	log.Printf("product operation failed: %v", err)
+	responses.WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Unexpected error")
+}
+
+func decodeJSON(r *http.Request, dest interface{}) error {
+	defer r.Body.Close()
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	return dec.Decode(dest)
 }

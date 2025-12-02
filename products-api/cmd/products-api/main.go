@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"net/url"
 	"time"
 
 	"products-api/internal/config"
@@ -17,6 +18,15 @@ import (
 
 func main() {
 	cfg := config.Load()
+	mongoHost := cfg.MongoURI
+	if parsed, err := url.Parse(cfg.MongoURI); err == nil {
+		mongoHost = parsed.Host
+	}
+	rabbitHost := cfg.RabbitMQURL
+	if parsed, err := url.Parse(cfg.RabbitMQURL); err == nil {
+		rabbitHost = parsed.Host
+	}
+	log.Printf("products-api config: port=%s mongo_host=%s mongo_db=%s rabbit_host=%s rabbit_exchange=%s", cfg.ServerPort, mongoHost, cfg.MongoDB, rabbitHost, cfg.RabbitMQExchange)
 
 	mongoClient, mongoDB, err := database.InitMongo(cfg)
 	if err != nil {
@@ -56,7 +66,7 @@ func main() {
 
 	addr := ":" + cfg.ServerPort
 	log.Printf("products-api listening on %s", addr)
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	if err := http.ListenAndServe(addr, middleware.RequestLogger(mux)); err != nil {
 		log.Fatalf("server error: %v", err)
 	}
 }

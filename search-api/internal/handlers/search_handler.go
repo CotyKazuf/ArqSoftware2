@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"errors"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -22,7 +24,7 @@ func NewSearchHandler(service *services.SearchService) *SearchHandler {
 // SearchProducts handles GET /search/products.
 func (h *SearchHandler) SearchProducts(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		responses.WriteError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed")
+		responses.WriteError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed")
 		return
 	}
 
@@ -40,7 +42,13 @@ func (h *SearchHandler) SearchProducts(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.service.SearchProducts(r.Context(), filters)
 	if err != nil {
-		responses.WriteError(w, http.StatusInternalServerError, "internal_error", "Could not execute search")
+		var valErr services.ValidationError
+		if errors.As(err, &valErr) {
+			responses.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", valErr.Error())
+			return
+		}
+		log.Printf("search products: %v", err)
+		responses.WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Could not execute search")
 		return
 	}
 
@@ -50,12 +58,13 @@ func (h *SearchHandler) SearchProducts(w http.ResponseWriter, r *http.Request) {
 // FlushCache handles POST /search/cache/flush to invalidate cached search responses.
 func (h *SearchHandler) FlushCache(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		responses.WriteError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed")
+		responses.WriteError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed")
 		return
 	}
 
 	if err := h.service.FlushCaches(r.Context()); err != nil {
-		responses.WriteError(w, http.StatusInternalServerError, "internal_error", "Could not flush caches")
+		log.Printf("flush caches: %v", err)
+		responses.WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Could not flush caches")
 		return
 	}
 

@@ -39,5 +39,5 @@ func (mh MethodHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	responses.WriteError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed")
+	responses.WriteError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed")
 }

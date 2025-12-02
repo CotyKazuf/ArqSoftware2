@@ -23,20 +23,20 @@ func AuthMiddleware(jwtSecret string) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
-				responses.WriteError(w, http.StatusUnauthorized, "auth_missing", "Authorization header is required")
+				responses.WriteError(w, http.StatusUnauthorized, "AUTHENTICATION_FAILED", "Authorization header is required")
 				return
 			}
 
 			parts := strings.SplitN(authHeader, " ", 2)
 			if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-				responses.WriteError(w, http.StatusUnauthorized, "auth_invalid", "Authorization header must be Bearer <token>")
+				responses.WriteError(w, http.StatusUnauthorized, "AUTHENTICATION_FAILED", "Authorization header must be Bearer <token>")
 				return
 			}
 
 			tokenString := strings.TrimSpace(parts[1])
 			claims, err := security.ParseToken(tokenString, jwtSecret)
 			if err != nil {
-				responses.WriteError(w, http.StatusUnauthorized, "invalid_token", "Invalid or expired token")
+				responses.WriteError(w, http.StatusUnauthorized, "AUTHENTICATION_FAILED", "Invalid or expired token")
 				return
 			}
 

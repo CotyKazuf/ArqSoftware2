@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -12,8 +11,14 @@ import (
 	"search-api/internal/models"
 )
 
-// ErrValidation indicates an invalid input value.
-var ErrValidation = errors.New("validation error")
+// ValidationError indicates an invalid input value.
+type ValidationError struct {
+	Message string
+}
+
+func (e ValidationError) Error() string {
+	return e.Message
+}
 
 // SearchFilters encapsulates query parameters for product search.
 type SearchFilters struct {
@@ -60,7 +65,11 @@ func NewSearchService(indexRepo IndexRepository, cache cache.Cache, cacheTTL tim
 
 // SearchProducts runs a search over Solr with layered caching.
 func (s *SearchService) SearchProducts(ctx context.Context, filters SearchFilters) (*SearchResult, error) {
+	filters = applySearchDefaults(filters)
 	filters = normalizeFilters(filters)
+	if err := ValidateSearchFilters(filters); err != nil {
+		return nil, err
+	}
 	filters.Page, filters.Size = sanitizePagination(filters.Page, filters.Size)
 
 	key := buildCacheKey(filters)
@@ -89,7 +98,7 @@ func (s *SearchService) SearchProducts(ctx context.Context, filters SearchFilter
 // IndexProduct indexes or updates a product document.
 func (s *SearchService) IndexProduct(ctx context.Context, product models.ProductDocument) error {
 	if strings.TrimSpace(product.ID) == "" {
-		return ErrValidation
+		return ValidationError{Message: "product id is required"}
 	}
 	if err := s.indexRepo.IndexProduct(ctx, product); err != nil {
 		return err
@@ -101,7 +110,7 @@ func (s *SearchService) IndexProduct(ctx context.Context, product models.Product
 // DeleteProduct removes a product from the index.
 func (s *SearchService) DeleteProduct(ctx context.Context, id string) error {
 	if strings.TrimSpace(id) == "" {
-		return ErrValidation
+		return ValidationError{Message: "product id is required"}
 	}
 	if err := s.indexRepo.DeleteProduct(ctx, id); err != nil {
 		return err
@@ -138,7 +147,7 @@ func normalizeFilters(f SearchFilters) SearchFilters {
 func sanitizePagination(page, size int) (int, int) {
 	const (
 		defaultPageSize = 10
-		maxPageSize     = 50
+		maxPageSize     = 100
 	)
 	if page < 1 {
 		page = 1
@@ -155,4 +164,33 @@ func sanitizePagination(page, size int) (int, int) {
 func buildCacheKey(f SearchFilters) string {
 	return fmt.Sprintf("q=%s|tipo=%s|estacion=%s|ocasion=%s|genero=%s|marca=%s|page=%d|size=%d",
 		f.Query, f.Tipo, f.Estacion, f.Ocasion, f.Genero, f.Marca, f.Page, f.Size)
+}
+
+// ValidateSearchFilters ensures the incoming filters respect limits.
+func ValidateSearchFilters(filters SearchFilters) error {
+	if filters.Query != "" {
+		if len([]rune(filters.Query)) < 2 {
+			return ValidationError{Message: "q must have at least 2 characters"}
+		}
+		if len([]rune(filters.Query)) > 200 {
+			return ValidationError{Message: "q must have 200 characters or fewer"}
+		}
+	}
+	if filters.Page < 1 {
+		return ValidationError{Message: "page must be greater or equal to 1"}
+	}
+	if filters.Size < 1 || filters.Size > 100 {
+		return ValidationError{Message: "size must be between 1 and 100"}
+	}
+	return nil
+}
+
+func applySearchDefaults(filters SearchFilters) SearchFilters {
+	if filters.Page == 0 {
+		filters.Page = 1
+	}
+	if filters.Size == 0 {
+		filters.Size = 10
+	}
+	return filters
 }

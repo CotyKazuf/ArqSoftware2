@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"users-api/internal/models"
@@ -13,8 +14,16 @@ import (
 var (
 	ErrEmailAlreadyExists = errors.New("email already exists")
 	ErrInvalidCredentials = errors.New("invalid credentials")
-	ErrValidation         = errors.New("validation error")
 )
+
+// ValidationError represents a client-facing validation failure.
+type ValidationError struct {
+	Reason string
+}
+
+func (e ValidationError) Error() string {
+	return e.Reason
+}
 
 // UserService contains business logic for registration and authentication.
 type UserService struct {
@@ -33,11 +42,11 @@ func NewUserService(repo repositories.UserRepository, jwtSecret string, jwtExpir
 
 func (s *UserService) Register(name, email, password string) (*models.User, error) {
 	name = strings.TrimSpace(name)
-	email = strings.TrimSpace(strings.ToLower(email))
+	email = normalizeEmail(email)
 	password = strings.TrimSpace(password)
 
-	if name == "" || email == "" || password == "" {
-		return nil, ErrValidation
+	if err := validateRegisterInput(name, email, password); err != nil {
+		return nil, err
 	}
 
 	existing, err := s.repo.FindByEmail(email)
@@ -68,11 +77,11 @@ func (s *UserService) Register(name, email, password string) (*models.User, erro
 }
 
 func (s *UserService) Login(email, password string) (string, *models.User, error) {
-	email = strings.TrimSpace(strings.ToLower(email))
+	email = normalizeEmail(email)
 	password = strings.TrimSpace(password)
 
-	if email == "" || password == "" {
-		return "", nil, ErrValidation
+	if err := validateLoginInput(email, password); err != nil {
+		return "", nil, err
 	}
 
 	user, err := s.repo.FindByEmail(email)
@@ -101,9 +110,10 @@ func (s *UserService) GetByID(id uint) (*models.User, error) {
 
 // EnsureAdminUser seeds a default admin if not already present.
 func (s *UserService) EnsureAdminUser(name, email, password string) error {
-	email = strings.TrimSpace(strings.ToLower(email))
-	if email == "" || password == "" {
-		return ErrValidation
+	email = normalizeEmail(email)
+	password = strings.TrimSpace(password)
+	if err := validateLoginInput(email, password); err != nil {
+		return err
 	}
 
 	_, err := s.repo.FindByEmail(email)
@@ -130,4 +140,43 @@ func (s *UserService) EnsureAdminUser(name, email, password string) error {
 		return fmt.Errorf("create admin: %w", err)
 	}
 	return nil
+}
+
+var emailRegex = regexp.MustCompile(`^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$`)
+
+func validateRegisterInput(name, email, password string) error {
+	if strings.TrimSpace(name) == "" {
+		return ValidationError{Reason: "name is required"}
+	}
+	if err := validateEmail(email); err != nil {
+		return err
+	}
+	if password == "" {
+		return ValidationError{Reason: "password is required"}
+	}
+	return nil
+}
+
+func validateLoginInput(email, password string) error {
+	if err := validateEmail(email); err != nil {
+		return err
+	}
+	if password == "" {
+		return ValidationError{Reason: "password is required"}
+	}
+	return nil
+}
+
+func validateEmail(email string) error {
+	if email == "" {
+		return ValidationError{Reason: "email is required"}
+	}
+	if !emailRegex.MatchString(email) {
+		return ValidationError{Reason: "email has invalid format"}
+	}
+	return nil
+}
+
+func normalizeEmail(email string) string {
+	return strings.TrimSpace(strings.ToLower(email))
 }
