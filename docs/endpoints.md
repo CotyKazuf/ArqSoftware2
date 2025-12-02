@@ -130,7 +130,7 @@ Formato de respuesta:
   "precio": 180.0,
   "stock": 12,
   "tipo": "amaderado",
-  "estacion": "otoño",
+  "estacion": "otono",
   "ocasion": "noche",
   "notas": ["vainilla", "pachuli", "cardamomo"],
   "genero": "mujer",
@@ -169,4 +169,57 @@ Formato de respuesta:
   - 400 `invalid_id`
   - 401 / 403 para auth/rol
   - 404 `product_not_found`
+  - 500 `internal_error`
+
+# Endpoints - search-api
+
+## GET /search/products
+- Publico (no requiere JWT).
+- Query params soportados: `q` (texto libre en nombre/descripcion), `tipo`, `estacion`, `ocasion`, `genero`, `marca`, `page`, `size`.
+- Respuesta 200:
+```json
+{
+  "data": {
+    "items": [
+      {
+        "id": "661f8d5e8c2f5d001352cd2a",
+        "name": "Brisa Marina",
+        "descripcion": "Perfil fresco con mandarina y coco",
+        "precio": 145.5,
+        "stock": 25,
+        "tipo": "fresco",
+        "estacion": "verano",
+        "ocasion": "dia",
+        "notas": ["mandarina", "coco", "jazmin"],
+        "genero": "unisex",
+        "marca": "Aromas",
+        "created_at": "2024-03-01T10:12:00Z",
+        "updated_at": "2024-03-05T08:33:00Z"
+      }
+    ],
+    "page": 1,
+    "size": 10,
+    "total": 1
+  },
+  "error": null
+}
+```
+- Notas: la respuesta se sirve desde Solr con cache combinada CCache + Memcached.
+- Errores comunes:
+  - 500 `internal_error` (fallo de Solr o cache)
+
+## POST /search/cache/flush
+- Requiere `Authorization: Bearer <token>` con rol `admin`.
+- Respuesta 200:
+```json
+{
+  "data": {
+    "message": "caches flushed"
+  },
+  "error": null
+}
+```
+- Errores comunes:
+  - 401 `auth_missing` / `invalid_token`
+  - 403 `forbidden`
   - 500 `internal_error`

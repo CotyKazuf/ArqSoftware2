@@ -181,7 +181,7 @@ var (
 	}
 	allowedEstaciones = map[string]struct{}{
 		"verano":    {},
-		"otoño":     {},
+		"otono":     {},
 		"invierno":  {},
 		"primavera": {},
 	}

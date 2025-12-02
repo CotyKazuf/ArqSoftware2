@@ -23,7 +23,7 @@
   - `precio`: `float64`, requerido y mayor a 0.
   - `stock`: `int`, requerido y mayor o igual a 0.
   - `tipo`: `string`, valores permitidos `floral`, `citrico`, `fresco`, `amaderado`.
-  - `estacion`: `string`, valores `verano`, `otoño`, `invierno`, `primavera`.
+  - `estacion`: `string`, valores `verano`, `otono`, `invierno`, `primavera`.
   - `ocasion`: `string`, valores `dia`, `noche`.
   - `notas`: `[]string`, lista de notas olfativas (`bergamota`, `rosa`, `pera`, `menta`, `lavanda`, `sandalo`, `vainilla`, `caramelo`, `eucalipto`, `coco`, `jazmin`, `mandarina`, `amaderado`, `gengibre`, `pachuli`, `cardamomo`).
   - `genero`: `string`, valores `hombre`, `mujer`, `unisex`.
@@ -33,3 +33,9 @@
 - Notas:
   - Todos los campos string se exponen en JSON en minusculas para facilitar el consumo desde frontend/solr.
   - Las operaciones de creacion, edicion y borrado requieren usuarios `admin`.
+
+## Productos (Solr - indice de busqueda)
+- Core: `products-core` creado automaticamente via `solr-precreate`.
+- Campos indexados: mismos campos del modelo Mongo (`id`, `name`, `descripcion`, `precio`, `stock`, `tipo`, `estacion`, `ocasion`, `notas`, `genero`, `marca`, `created_at`, `updated_at`).
+- Los documentos se sincronizan desde `products-api` via eventos RabbitMQ (`product.created`, `product.updated`, `product.deleted`).
+- `search-api` consulta Solr con filtros por `tipo`, `estacion`, `ocasion`, `genero`, `marca` y texto libre (`q`), y cachea las respuestas en CCache (in-memory) y Memcached (distribuido).

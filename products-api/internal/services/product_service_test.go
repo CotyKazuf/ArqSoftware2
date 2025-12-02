@@ -102,7 +102,7 @@ func TestUpdateProductSuccess(t *testing.T) {
 		Precio:      150,
 		Stock:       7,
 		Tipo:        "amaderado",
-		Estacion:    "otoño",
+		Estacion:    "otono",
 		Ocasion:     "noche",
 		Notas:       []string{"sandalo"},
 		Genero:      "mujer",

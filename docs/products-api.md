@@ -7,7 +7,7 @@ Microservicio en Go responsable del CRUD de productos/perfumes. Expone HTTP JSON
 - Campos: `id`, `name`, `descripcion`, `precio`, `stock`, `tipo`, `estacion`, `ocasion`, `notas`, `genero`, `marca`, `created_at`, `updated_at`.
 - Valores validos:
   - `tipo`: `floral`, `citrico`, `fresco`, `amaderado`.
-  - `estacion`: `verano`, `otoño`, `invierno`, `primavera`.
+  - `estacion`: `verano`, `otono`, `invierno`, `primavera`.
   - `ocasion`: `dia`, `noche`.
   - `genero`: `hombre`, `mujer`, `unisex`.
   - `notas`: `bergamota`, `rosa`, `pera`, `menta`, `lavanda`, `sandalo`, `vainilla`, `caramelo`, `eucalipto`, `coco`, `jazmin`, `mandarina`, `amaderado`, `gengibre`, `pachuli`, `cardamomo`.
@@ -24,8 +24,8 @@ Todas las respuestas se envian en el formato `{"data": ..., "error": null}` o `{
 ## Eventos RabbitMQ
 - Exchange: `products-exchange` (topic).
 - Routing keys publicados:
-  - `product.created`: payload con todos los campos principales del producto.
-  - `product.updated`: payload con el producto actualizado.
+  - `product.created`: payload con todos los campos principales del producto (incluye `created_at` y `updated_at`).
+  - `product.updated`: payload con el producto actualizado (incluye `updated_at`).
   - `product.deleted`: payload minimo `{"id": "<hex>"}`.
 
 Los eventos se publican luego de completar el CRUD; si falla la publicacion se registra el error pero la operacion HTTP no se revierte.
