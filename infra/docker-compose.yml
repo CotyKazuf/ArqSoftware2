@@ -70,6 +70,30 @@ services:
     networks:
       - backend-network
 
+  users-api:
+    build:
+      context: ../users-api
+      dockerfile: Dockerfile
+    container_name: users-api
+    restart: unless-stopped
+    depends_on:
+      - mysql
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: ${MYSQL_USER:-users_admin}
+      DB_PASS: ${MYSQL_PASSWORD:-users_admin_pass}
+      DB_NAME: ${MYSQL_DATABASE:-usersdb}
+      JWT_SECRET: ${JWT_SECRET:-changeme}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-60}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@aromas.com}
+      ADMIN_DEFAULT_PASSWORD: ${ADMIN_DEFAULT_PASSWORD:-admin123}
+      PORT: 8080
+    ports:
+      - "8080:8080"
+    networks:
+      - backend-network
+
 networks:
   backend-network:
     driver: bridge
