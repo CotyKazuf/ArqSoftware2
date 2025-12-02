@@ -13,6 +13,7 @@
 
 ## Estado actual
 - **UsersApi**: implementacion de la fase 2 de `users-api` (modelo User en MySQL/GORM, repositorio, servicios de registro/login, JWT, middleware, Dockerfile/compose, actualizacion de docs).
+- **ProductsApi**: fase 3 completada en `feature/products-api` (microservicio en Go con MongoDB, validaciones, JWT/rol admin, publicacion de eventos RabbitMQ, pruebas basicas, Dockerfile y actualizacion de compose/docs).
 
 ## Convenciones de commits
 - Mensajes claros y en espanol, mencionando el modulo o rama tecnica (p.e. `users-api: agrega esquema base`).

@@ -94,6 +94,27 @@ services:
     networks:
       - backend-network
 
+  products-api:
+    build:
+      context: ../products-api
+      dockerfile: Dockerfile
+    container_name: products-api
+    restart: unless-stopped
+    depends_on:
+      - mongo
+      - rabbitmq
+    environment:
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DB_NAME: ${MONGO_DB:-productsdb}
+      JWT_SECRET: ${JWT_SECRET:-changeme}
+      RABBITMQ_URL: amqp://admin:admin@rabbitmq:5672/
+      RABBITMQ_EXCHANGE: ${RABBITMQ_EXCHANGE:-products-exchange}
+      PORT: 8081
+    ports:
+      - "8081:8081"
+    networks:
+      - backend-network
+
 networks:
   backend-network:
     driver: bridge

@@ -25,11 +25,15 @@ type Config struct {
 // Load reads environment variables and applies sensible defaults for local usage.
 func Load() *Config {
 	return &Config{
-		DBHost:               getEnv("DB_HOST", "localhost"),
-		DBPort:               getEnv("DB_PORT", "3306"),
-		DBUser:               getEnv("DB_USER", "users_admin"),
-		DBPass:               getEnv("DB_PASS", "users_admin_pass"),
-		DBName:               getEnv("DB_NAME", "usersdb"),
+
+		DBHost: getEnv("DB_HOST", "mysql"),
+
+		DBPort: getEnv("DB_PORT", "3306"),
+
+		DBUser: getEnv("DB_USER", "users_admin"),
+		DBPass: getEnv("DB_PASS", "users_admin_pass"),
+		DBName: getEnv("DB_NAME", "usersdb"),
+
 		JWTSecret:            getEnv("JWT_SECRET", "changeme"),
 		JWTExpirationMinutes: getEnvAsInt("JWT_EXPIRATION", 60),
 		AdminEmail:           getEnv("ADMIN_EMAIL", "admin@aromas.com"),
