@@ -1,0 +1,18 @@
+# Go
+bin/
+cmd/**/bin/
+*.test
+coverage.out
+
+# Node / React
+node_modules/
+dist/
+build/
+.next/
+
+# Editor / OS
+.DS_Store
+*.swp
+*.log
+.idea/
+.vscode/

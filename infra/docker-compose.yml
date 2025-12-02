@@ -1,0 +1,2 @@
+# Placeholder for the main docker-compose configuration.
+# Services (MySQL, MongoDB, RabbitMQ, Solr, Memcached, etc.) will be defined in futuras fases.
