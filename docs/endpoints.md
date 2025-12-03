@@ -179,7 +179,7 @@ Los ejemplos siguientes omiten campos irrelevantes para simplificar.
   "error": null
 }
 ```
-- **Errores:** 400 `VALIDATION_ERROR` (paginación o `q` fuera de rango), 500 `INTERNAL_ERROR` cuando Solr/cache fallan.
+- **Errores:** 400 `VALIDATION_ERROR` (paginación o `q` fuera de rango), 500 `SEARCH_BACKEND_ERROR` (fallas consultando Solr/cache) y 500 `INTERNAL_ERROR` para errores inesperados.
 
 ### POST /search/cache/flush
 - **Descripción:** invalida la cache en memoria y Memcached.

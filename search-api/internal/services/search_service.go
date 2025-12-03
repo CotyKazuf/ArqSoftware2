@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -18,6 +19,24 @@ type ValidationError struct {
 
 func (e ValidationError) Error() string {
 	return e.Message
+}
+
+// BackendError represents failures talking to the search backend (Solr).
+type BackendError struct {
+	Message string
+	Err     error
+}
+
+func (e BackendError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("%s: %v", e.Message, e.Err)
+	}
+	return e.Message
+}
+
+// Unwrap lets errors.Is/As inspect the wrapped error.
+func (e BackendError) Unwrap() error {
+	return e.Err
 }
 
 // SearchFilters encapsulates query parameters for product search.
@@ -162,8 +181,10 @@ func sanitizePagination(page, size int) (int, int) {
 }
 
 func buildCacheKey(f SearchFilters) string {
-	return fmt.Sprintf("q=%s|tipo=%s|estacion=%s|ocasion=%s|genero=%s|marca=%s|page=%d|size=%d",
+	rawKey := fmt.Sprintf("q=%s|tipo=%s|estacion=%s|ocasion=%s|genero=%s|marca=%s|page=%d|size=%d",
 		f.Query, f.Tipo, f.Estacion, f.Ocasion, f.Genero, f.Marca, f.Page, f.Size)
+	sum := sha256.Sum256([]byte(rawKey))
+	return fmt.Sprintf("search:%x", sum[:])
 }
 
 // ValidateSearchFilters ensures the incoming filters respect limits.

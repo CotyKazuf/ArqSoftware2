@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Detalle de producto</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="/styles.css" />
+    <style>
+      body {
+        margin: 0;
+        background: #f4ede6;
+        font-family: Poppins, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+        color: #1a1410;
+      }
+      .detalle-wrapper {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: clamp(24px, 6vw, 72px) 24px 56px;
+      }
+      .detalle-card {
+        background: rgba(255, 255, 255, 0.92);
+        border-radius: 30px;
+        padding: clamp(24px, 4vw, 60px);
+        border: 1px solid rgba(0, 0, 0, 0.05);
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.08);
+      }
+      .detalle-card h1 {
+        margin: 4px 0 0;
+        font-size: clamp(28px, 4vw, 48px);
+      }
+      .detalle-price {
+        font-size: clamp(24px, 3vw, 40px);
+        color: #b88972;
+        font-weight: 700;
+        margin: 12px 0 28px;
+      }
+      .detalle-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 18px;
+      }
+      .detalle-item {
+        background: rgba(244, 237, 230, 0.9);
+        border-radius: 18px;
+        padding: 18px;
+        border: 1px solid rgba(0, 0, 0, 0.05);
+      }
+      .detalle-item h3 {
+        margin: 0 0 8px;
+        font-size: 14px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #8e6a58;
+      }
+      .detalle-item p {
+        margin: 0;
+        line-height: 1.5;
+      }
+      .notes-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 0;
+        margin: 0;
+        list-style: none;
+      }
+      .notes-list li {
+        background: #fff;
+        border-radius: 999px;
+        padding: 6px 12px;
+        font-size: 13px;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+      }
+      .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 28px;
+        color: #8e6a58;
+        text-decoration: none;
+        font-weight: 600;
+      }
+      .back-link svg {
+        width: 20px;
+        height: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="detalle-wrapper">
+      <article class="detalle-card">
+        <p class="eyebrow">Detalle del perfume</p>
+        <h1>Aurora Velours</h1>
+        <p>Edición limitada con corazón floral y fondo amaderado para acompañar noches memorables.</p>
+        <p class="detalle-price">$210 USD</p>
+
+        <section class="detalle-grid">
+          <div class="detalle-item">
+            <h3>Marca</h3>
+            <p>Loki's Private Collection</p>
+          </div>
+          <div class="detalle-item">
+            <h3>Descripción</h3>
+            <p>Composición envolvente con acordes cremosos de vainilla y tonos especiados que evolucionan suavemente.</p>
+          </div>
+          <div class="detalle-item">
+            <h3>Tipo</h3>
+            <p>Floral</p>
+          </div>
+          <div class="detalle-item">
+            <h3>Estaciones</h3>
+            <ul class="notes-list">
+              <li>Otoño</li>
+              <li>Invierno</li>
+            </ul>
+          </div>
+          <div class="detalle-item">
+            <h3>Ocasiones</h3>
+            <ul class="notes-list">
+              <li>Noche elegante</li>
+              <li>Eventos especiales</li>
+            </ul>
+          </div>
+          <div class="detalle-item">
+            <h3>Género</h3>
+            <ul class="notes-list">
+            <li>Unisex</li>
+            </ul>
+          </div>
+          <div class="detalle-item">
+            <h3>Notas</h3>
+            <ul class="notes-list">
+              <li>Rosa búlgara</li>
+              <li>Vainilla</li>
+              <li>Ámbar</li>
+              <li>Sándalo</li>
+              <li>Cacao</li>
+            </ul>
+          </div>
+          <div class="detalle-item">
+            <h3>Stock</h3>
+            <p>Disponible (restan 32 unidades)</p>
+          </div>
+        </section>
+
+        <a class="back-link" href="/shop">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M15 6L9 12l6 6" stroke="#8e6a58" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          Volver a la tienda
+        </a>
+      </article>
+    </main>
+  </body>
+</html>

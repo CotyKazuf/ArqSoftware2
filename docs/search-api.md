@@ -3,7 +3,7 @@
 Microservicio en Go dedicado a busquedas. Consulta Solr (`products-core`), cachea resultados con CCache (in-memory) y Memcached (distribuido) y se mantiene sincronizado con los cambios de productos via RabbitMQ.
 
 ## Endpoints
-- `GET /search/products`: publico, acepta `q`, `tipo`, `estacion`, `ocasion`, `genero`, `marca`, `page`, `size`. Devuelve `items`, `page`, `size`, `total`.
+- `GET /search/products`: publico, acepta `q`, `tipo`, `estacion`, `ocasion`, `genero`, `marca`, `page`, `size`. Devuelve `items`, `page`, `size`, `total`. Errores: `VALIDATION_ERROR` (400), `SEARCH_BACKEND_ERROR` (500 cuando Solr/cache fallan) e `INTERNAL_ERROR` (500 genérico).
 - `POST /search/cache/flush`: invalida todas las caches de busqueda. Requiere token con rol `admin`.
 
 ## Dependencias

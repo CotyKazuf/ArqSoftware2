@@ -1,0 +1,24 @@
+[
+  {
+    "id": "giorgio-armani-armani-my-way",
+    "nombre": "Armani My Way",
+    "marca": "Giorgio Armani",
+    "genero": "mujer",
+    "tipo": "Floral blanco",
+    "notas": [
+      "Floral",
+      "blanco"
+    ],
+    "estaciones": [
+      "Primavera",
+      "Verano"
+    ],
+    "ocasion": [
+      "Día",
+      "Oficina"
+    ],
+    "precioUSD": 135,
+    "tamanoML": 100,
+    "imagen": "img/perfumes/Armani My Way.jpg"
+  }
+]

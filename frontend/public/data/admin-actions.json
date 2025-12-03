@@ -1,0 +1,38 @@
+[
+  {
+    "id": "ACT-001",
+    "code": "ACT-001",
+    "title": "Campaña lanzamiento otoño",
+    "description": "Campaña multicanal para el lanzamiento de la colección otoño.",
+    "status": "En revisión",
+    "createdAt": "2024-10-05T10:30:00-03:00",
+    "ownerId": "user-demo"
+  },
+  {
+    "id": "ACT-002",
+    "code": "ACT-002",
+    "title": "Actualización lookbook digital",
+    "description": "Carga de nuevo lookbook y optimización de descripciones SEO.",
+    "status": "Completada",
+    "createdAt": "2024-09-18T08:15:00-03:00",
+    "ownerId": "user-demo"
+  },
+  {
+    "id": "ACT-003",
+    "code": "ACT-003",
+    "title": "Brief evento fin de año",
+    "description": "Definición de actividades y partners para el evento anual.",
+    "status": "Pendiente",
+    "createdAt": "2024-11-22T16:45:00-03:00",
+    "ownerId": "user-partner"
+  },
+  {
+    "id": "ACT-004",
+    "code": "ACT-004",
+    "title": "Coordinación influencers Q4",
+    "description": "Revisión de contratos y seguimiento de entregables.",
+    "status": "En progreso",
+    "createdAt": "2024-10-30T12:05:00-03:00",
+    "ownerId": "user-demo"
+  }
+]

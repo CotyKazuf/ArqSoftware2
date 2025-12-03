@@ -76,26 +76,28 @@ func (c *Client) Search(ctx context.Context, filters services.SearchFilters) (*s
 	endpoint := fmt.Sprintf("%s/%s/select?%s", c.baseURL, c.core, params.Encode())
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
-		return nil, fmt.Errorf("build solr request: %w", err)
+		return nil, services.BackendError{Message: "build solr request", Err: err}
 	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("solr request: %w", err)
+		return nil, services.BackendError{Message: "solr request failed", Err: err}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("solr returned status %d", resp.StatusCode)
+		return nil, services.BackendError{
+			Message: fmt.Sprintf("solr returned status %d", resp.StatusCode),
+		}
 	}
 
 	var solrResp solrResponse
 	if err := json.NewDecoder(resp.Body).Decode(&solrResp); err != nil {
-		return nil, fmt.Errorf("decode solr response: %w", err)
+		return nil, services.BackendError{Message: "decode solr response", Err: err}
 	}
 
 	return &services.SearchResult{
-		Items: solrResp.Response.Docs,
+		Items: convertDocs(solrResp.Response.Docs),
 		Page:  filters.Page,
 		Size:  filters.Size,
 		Total: solrResp.Response.NumFound,
@@ -155,6 +157,160 @@ func escapeTerm(term string) string {
 type solrResponse struct {
 	Response struct {
 		NumFound int64                    `json:"numFound"`
-		Docs     []models.ProductDocument `json:"docs"`
+		Docs     []map[string]interface{} `json:"docs"`
 	} `json:"response"`
+}
+
+func convertDocs(docs []map[string]interface{}) []models.ProductDocument {
+	results := make([]models.ProductDocument, 0, len(docs))
+	for _, doc := range docs {
+		results = append(results, mapSolrDoc(doc))
+	}
+	return results
+}
+
+func mapSolrDoc(doc map[string]interface{}) models.ProductDocument {
+	return models.ProductDocument{
+		ID:          stringValue(doc["id"]),
+		Name:        stringValue(doc["name"]),
+		Descripcion: stringValue(doc["descripcion"]),
+		Precio:      floatValue(doc["precio"]),
+		Stock:       intValue(doc["stock"]),
+		Tipo:        stringValue(doc["tipo"]),
+		Estacion:    stringValue(doc["estacion"]),
+		Ocasion:     stringValue(doc["ocasion"]),
+		Notas:       stringSliceValue(doc["notas"]),
+		Genero:      stringValue(doc["genero"]),
+		Marca:       stringValue(doc["marca"]),
+		CreatedAt:   timeValue(doc["created_at"]),
+		UpdatedAt:   timeValue(doc["updated_at"]),
+	}
+}
+
+func firstScalar(value interface{}) interface{} {
+	switch v := value.(type) {
+	case nil:
+		return nil
+	case []interface{}:
+		for _, item := range v {
+			if scalar := firstScalar(item); scalar != nil {
+				return scalar
+			}
+		}
+	case []string:
+		if len(v) > 0 {
+			return v[0]
+		}
+	default:
+		return value
+	}
+	return nil
+}
+
+func stringValue(value interface{}) string {
+	scalar := firstScalar(value)
+	switch v := scalar.(type) {
+	case string:
+		return v
+	case fmt.Stringer:
+		return v.String()
+	case float64:
+		return strconv.FormatFloat(v, 'f', -1, 64)
+	case int:
+		return strconv.Itoa(v)
+	case int64:
+		return strconv.FormatInt(v, 10)
+	case uint64:
+		return strconv.FormatUint(v, 10)
+	case bool:
+		if v {
+			return "true"
+		}
+		return "false"
+	case nil:
+		return ""
+	default:
+		if scalar != nil {
+			return fmt.Sprintf("%v", scalar)
+		}
+		return ""
+	}
+}
+
+func floatValue(value interface{}) float64 {
+	scalar := firstScalar(value)
+	switch v := scalar.(type) {
+	case float64:
+		return v
+	case float32:
+		return float64(v)
+	case int:
+		return float64(v)
+	case int64:
+		return float64(v)
+	case uint64:
+		return float64(v)
+	case string:
+		if parsed, err := strconv.ParseFloat(strings.TrimSpace(v), 64); err == nil {
+			return parsed
+		}
+	}
+	return 0
+}
+
+func intValue(value interface{}) int {
+	scalar := firstScalar(value)
+	switch v := scalar.(type) {
+	case int:
+		return v
+	case int64:
+		return int(v)
+	case uint64:
+		return int(v)
+	case float64:
+		return int(v)
+	case float32:
+		return int(v)
+	case string:
+		if parsed, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
+			return parsed
+		}
+	}
+	return 0
+}
+
+func stringSliceValue(value interface{}) []string {
+	switch v := value.(type) {
+	case []string:
+		out := make([]string, len(v))
+		copy(out, v)
+		return out
+	case []interface{}:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			if str := stringValue(item); str != "" {
+				out = append(out, str)
+			}
+		}
+		return out
+	case string:
+		if strings.TrimSpace(v) == "" {
+			return nil
+		}
+		return []string{v}
+	default:
+		if str := stringValue(value); str != "" {
+			return []string{str}
+		}
+	}
+	return nil
+}
+
+func timeValue(value interface{}) time.Time {
+	if str := stringValue(value); str != "" {
+		if parsed, err := time.Parse(time.RFC3339, str); err == nil {
+			return parsed
+		}
+	}
+	return time.Time{}
 }

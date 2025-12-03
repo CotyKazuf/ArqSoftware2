@@ -47,6 +47,12 @@ func (h *SearchHandler) SearchProducts(w http.ResponseWriter, r *http.Request) {
 			responses.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", valErr.Error())
 			return
 		}
+		var backendErr services.BackendError
+		if errors.As(err, &backendErr) {
+			log.Printf("search backend error: %v", backendErr)
+			responses.WriteError(w, http.StatusInternalServerError, "SEARCH_BACKEND_ERROR", "No se pudo consultar el índice de búsqueda.")
+			return
+		}
 		log.Printf("search products: %v", err)
 		responses.WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Could not execute search")
 		return
