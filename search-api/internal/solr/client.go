@@ -182,6 +182,7 @@ func mapSolrDoc(doc map[string]interface{}) models.ProductDocument {
 		Notas:       stringSliceValue(doc["notas"]),
 		Genero:      stringValue(doc["genero"]),
 		Marca:       stringValue(doc["marca"]),
+		Imagen:      stringValue(doc["imagen"]),
 		CreatedAt:   timeValue(doc["created_at"]),
 		UpdatedAt:   timeValue(doc["updated_at"]),
 	}

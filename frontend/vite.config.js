@@ -25,6 +25,10 @@ export default defineConfig(({ mode }) => {
           target: productsTarget,
           changeOrigin: true,
         },
+        '/compras': {
+          target: productsTarget,
+          changeOrigin: true,
+        },
         '/search': {
           target: searchTarget,
           changeOrigin: true,

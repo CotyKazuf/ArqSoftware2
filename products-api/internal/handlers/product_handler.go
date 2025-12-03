@@ -34,6 +34,7 @@ type productRequest struct {
 	Notas       []string `json:"notas"`
 	Genero      string   `json:"genero"`
 	Marca       string   `json:"marca"`
+	Imagen      string   `json:"imagen"`
 }
 
 // ListProducts handles GET /products.
@@ -176,6 +177,7 @@ func toInput(req productRequest) services.CreateProductInput {
 		Notas:       req.Notas,
 		Genero:      req.Genero,
 		Marca:       req.Marca,
+		Imagen:      req.Imagen,
 	}
 }
 

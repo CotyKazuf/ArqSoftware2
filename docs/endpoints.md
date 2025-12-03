@@ -91,6 +91,7 @@ Los ejemplos siguientes omiten campos irrelevantes para simplificar.
         "notas": ["mandarina", "coco", "jazmin"],
         "genero": "unisex",
         "marca": "Aromas",
+        "imagen": "https://cdn.example.com/perfumes/brisa.jpg",
         "created_at": "2024-03-01T10:12:00Z",
         "updated_at": "2024-03-05T08:33:00Z"
       }
@@ -124,7 +125,8 @@ Los ejemplos siguientes omiten campos irrelevantes para simplificar.
   "ocasion": "noche",
   "notas": ["vainilla", "pachuli", "cardamomo"],
   "genero": "mujer",
-  "marca": "Aromas Deluxe"
+  "marca": "Aromas Deluxe",
+  "imagen": "https://cdn.example.com/perfumes/nocturna.jpg"
 }
 ```
 - **Respuesta 201:** producto persistido con campos de auditoría.
@@ -142,6 +144,47 @@ Los ejemplos siguientes omiten campos irrelevantes para simplificar.
 - **Auth:** `admin`.
 - **Respuesta 204:** cuerpo vacío (solo headers `Content-Type: application/json` si aplica).
 - **Errores:** 400 `INVALID_ID`, 401 `AUTHENTICATION_FAILED`, 403 `FORBIDDEN`, 404 `PRODUCT_NOT_FOUND`, 500 `INTERNAL_ERROR`.
+
+### POST /compras
+- **Descripción:** confirma una compra, descuenta stock y genera un registro para “Mis acciones”.
+- **Auth:** `Authorization: Bearer <token>` obligatorio (rol `normal` o `admin`).
+- **Body:**
+```json
+{
+  "items": [
+    { "producto_id": "6630f...", "cantidad": 2 },
+    { "producto_id": "6630fabc...", "cantidad": 1 }
+  ]
+}
+```
+- **Respuesta 201:**
+```json
+{
+  "data": {
+    "id": "6650d...",
+    "fecha_compra": "2024-05-20T15:33:25Z",
+    "total": 310.5,
+    "items": [
+      {
+        "product_id": "6630f...",
+        "nombre": "Brisa Marina",
+        "marca": "Aromas",
+        "imagen": "https://cdn.example.com/perfumes/brisa.jpg",
+        "precio_unitario": 145.5,
+        "cantidad": 2
+      }
+    ]
+  },
+  "error": null
+}
+```
+- **Errores:** 400 `INVALID_JSON`/`VALIDATION_ERROR`/`INSUFFICIENT_STOCK`, 401 `AUTHENTICATION_FAILED`, 404 `PRODUCT_NOT_FOUND`, 500 `INTERNAL_ERROR`.
+
+### GET /compras/mias
+- **Descripción:** devuelve el historial del usuario autenticado (ordenado desc por fecha).
+- **Auth:** requiere JWT.
+- **Respuesta 200:** lista de compras con el mismo formato que en el checkout.
+- **Errores:** 401 `AUTHENTICATION_FAILED`, 500 `INTERNAL_ERROR`.
 
 ## search-api (puerto 8082)
 
@@ -169,7 +212,8 @@ Los ejemplos siguientes omiten campos irrelevantes para simplificar.
         "ocasion": "noche",
         "notas": ["vainilla", "pachuli", "cardamomo"],
         "genero": "mujer",
-        "marca": "Aromas Deluxe"
+        "marca": "Aromas Deluxe",
+        "imagen": "https://cdn.example.com/perfumes/nocturna.jpg"
       }
     ],
     "page": 1,

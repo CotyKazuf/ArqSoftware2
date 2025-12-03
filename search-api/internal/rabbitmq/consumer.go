@@ -159,6 +159,7 @@ func decodeProductEvent(routingKey string, body []byte) (ProductEvent, error) {
 			Notas:       payload.Notas,
 			Genero:      payload.Genero,
 			Marca:       payload.Marca,
+			Imagen:      payload.Imagen,
 		},
 	}
 
@@ -193,6 +194,7 @@ type productMessage struct {
 	Notas       []string   `json:"notas"`
 	Genero      string     `json:"genero"`
 	Marca       string     `json:"marca"`
+	Imagen      string     `json:"imagen"`
 	CreatedAt   *time.Time `json:"created_at,omitempty"`
 	UpdatedAt   *time.Time `json:"updated_at,omitempty"`
 }

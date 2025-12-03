@@ -51,6 +51,7 @@ type CreateProductInput struct {
 	Notas       []string
 	Genero      string
 	Marca       string
+	Imagen      string
 }
 
 // UpdateProductInput mirrors the fields that can be updated.
@@ -74,6 +75,7 @@ func (s *ProductService) CreateProduct(input CreateProductInput) (*models.Produc
 		Notas:       input.Notas,
 		Genero:      input.Genero,
 		Marca:       input.Marca,
+		Imagen:      strings.TrimSpace(input.Imagen),
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
@@ -111,6 +113,7 @@ func (s *ProductService) UpdateProduct(id string, input UpdateProductInput) (*mo
 	product.Notas = input.Notas
 	product.Genero = input.Genero
 	product.Marca = input.Marca
+	product.Imagen = strings.TrimSpace(input.Imagen)
 	product.UpdatedAt = time.Now().UTC()
 
 	if err := s.repo.Update(product); err != nil {
@@ -230,6 +233,9 @@ func validateProductInput(input CreateProductInput) error {
 	if strings.TrimSpace(input.Marca) == "" {
 		return ValidationError{Code: "VALIDATION_ERROR", Message: "marca is required"}
 	}
+	if err := validateImageURL(input.Imagen); err != nil {
+		return err
+	}
 	for _, nota := range input.Notas {
 		if _, ok := allowedNotas[nota]; !ok {
 			return ValidationError{Code: "INVALID_FIELD_VALUE", Message: fmt.Sprintf("nota %s is not supported", nota)}
@@ -245,6 +251,17 @@ func validateField(name, value string, allowed map[string]struct{}) error {
 	}
 	if _, ok := allowed[value]; !ok {
 		return ValidationError{Code: "INVALID_FIELD_VALUE", Message: fmt.Sprintf("%s has an invalid value", name)}
+	}
+	return nil
+}
+
+func validateImageURL(raw string) error {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return ValidationError{Code: "VALIDATION_ERROR", Message: "imagen is required"}
+	}
+	if !(strings.HasPrefix(value, "http://") || strings.HasPrefix(value, "https://")) {
+		return ValidationError{Code: "VALIDATION_ERROR", Message: "imagen must start with http:// or https://"}
 	}
 	return nil
 }

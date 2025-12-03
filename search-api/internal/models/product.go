@@ -15,6 +15,7 @@ type ProductDocument struct {
 	Notas       []string  `json:"notas"`
 	Genero      string    `json:"genero"`
 	Marca       string    `json:"marca"`
+	Imagen      string    `json:"imagen"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }

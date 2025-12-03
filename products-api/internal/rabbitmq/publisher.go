@@ -123,6 +123,7 @@ func productPayload(p *models.Product) map[string]interface{} {
 		"notas":       p.Notas,
 		"genero":      p.Genero,
 		"marca":       p.Marca,
+		"imagen":      p.Imagen,
 		"created_at":  p.CreatedAt,
 		"updated_at":  p.UpdatedAt,
 	}

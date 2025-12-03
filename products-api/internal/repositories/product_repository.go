@@ -90,6 +90,7 @@ func (r *MongoProductRepository) Update(p *models.Product) error {
 			"notas":       p.Notas,
 			"genero":      p.Genero,
 			"marca":       p.Marca,
+			"imagen":      p.Imagen,
 			"updated_at":  p.UpdatedAt,
 		},
 	}

@@ -36,7 +36,8 @@ const priceFormatter = new Intl.NumberFormat('es-AR', {
   maximumFractionDigits: 2,
 })
 
-const PAGE_SIZE = 12
+const DEFAULT_PAGE_SIZE = 12
+const PAGE_SIZE_OPTIONS = [6, 12, 24]
 
 const resolveImage = (product) => product?.image_url || product?.image || product?.imagen || ''
 
@@ -61,6 +62,13 @@ function Shop() {
   const { isLoading, isError, setLoading, setSuccess, setError } = useStatus('loading')
   const searchTerm = searchParams.get('q')?.trim() ?? ''
   const page = Math.max(1, Number(searchParams.get('page')) || 1)
+  const pageSize = useMemo(() => {
+    const parsed = Number(searchParams.get('size'))
+    if (PAGE_SIZE_OPTIONS.includes(parsed)) {
+      return parsed
+    }
+    return DEFAULT_PAGE_SIZE
+  }, [searchParams])
   const updateSearchParams = (updater) => {
     const params = new URLSearchParams(searchParams)
     updater(params)
@@ -91,7 +99,7 @@ function Shop() {
           estacion: filters.estacion || undefined,
           ocasion: filters.ocasion || undefined,
           page,
-          size: PAGE_SIZE,
+          size: pageSize,
         })
 
         if (!active) return
@@ -112,7 +120,7 @@ function Shop() {
     return () => {
       active = false
     }
-  }, [filters, page, searchTerm, setError, setLoading, setSuccess])
+  }, [filters, page, pageSize, searchTerm, setError, setLoading, setSuccess])
 
   const hasActiveFilters = useMemo(
     () => Object.values(filters).some((value) => Boolean(value)),
@@ -161,7 +169,7 @@ function Shop() {
   }
 
   const handlePageChange = (nextPage) => {
-    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+    const totalPages = Math.max(1, Math.ceil(total / pageSize))
     if (nextPage < 1 || nextPage > totalPages) return
     updateSearchParams((params) => {
       if (nextPage > 1) {
@@ -169,6 +177,19 @@ function Shop() {
       } else {
         params.delete('page')
       }
+    })
+  }
+
+  const handlePageSizeChange = (event) => {
+    const nextSize = Number(event.target.value)
+    if (!PAGE_SIZE_OPTIONS.includes(nextSize)) return
+    updateSearchParams((params) => {
+      if (nextSize === DEFAULT_PAGE_SIZE) {
+        params.delete('size')
+      } else {
+        params.set('size', String(nextSize))
+      }
+      params.delete('page')
     })
   }
 
@@ -197,12 +218,12 @@ function Shop() {
 
   const currentRange = useMemo(() => {
     if (!total || products.length === 0) return '0 resultados'
-    const start = (page - 1) * PAGE_SIZE + 1
+    const start = (page - 1) * pageSize + 1
     const end = start + products.length - 1
     return `Mostrando ${start}-${end} de ${total} perfumes`
-  }, [page, products.length, total])
+  }, [page, pageSize, products.length, total])
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
   const renderList = (list, selectedValue, key) => (
     <ul className="side-list">
@@ -276,6 +297,17 @@ function Shop() {
             {currentRange}
             {searchTerm ? ` para "${searchTerm}"` : ''}
           </p>
+          <label className="page-size-control">
+            Mostrar
+            <select value={pageSize} onChange={handlePageSizeChange}>
+              {PAGE_SIZE_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+            por página
+          </label>
         </header>
 
         {isLoading && <p className="no-results">Cargando perfumes...</p>}
@@ -313,7 +345,6 @@ function Shop() {
                 )}
                 <h4 className="card-title">{product.name}</h4>
                 <p className="card-brand">{product.marca}</p>
-                <p className="card-desc">{product.descripcion}</p>
                 <p className="card-price">{priceFormatter.format(product.precio)}</p>
                 <div className="card-meta">
                   <span>{product.tipo}</span>
@@ -338,8 +369,9 @@ function Shop() {
                       event.stopPropagation()
                       handleAddToCart(product)
                     }}
+                    disabled={product.stock <= 0}
                   >
-                    Agregar
+                    {product.stock <= 0 ? 'Sin stock' : 'Agregar'}
                   </button>
                 </div>
               </article>

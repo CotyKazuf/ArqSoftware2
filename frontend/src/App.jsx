@@ -15,6 +15,7 @@ import ProductDetail from './pages/ProductDetail'
 import AdminLayout from './pages/admin/AdminLayout'
 import ProductsList from './pages/admin/ProductsList'
 import ProductForm from './pages/admin/ProductForm'
+import UserActions from './pages/UserActions'
 
 function App() {
   return (
@@ -30,6 +31,14 @@ function App() {
               <Route path="productos/:id" element={<ProductDetail />} />
               <Route path="login" element={<Login />} />
               <Route path="signup" element={<Signup />} />
+              <Route
+                path="mis-acciones"
+                element={
+                  <PrivateRoute>
+                    <UserActions />
+                  </PrivateRoute>
+                }
+              />
               <Route
                 path="carrito"
                 element={

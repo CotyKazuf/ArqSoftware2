@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
+import { createPurchase } from '../services/purchaseService'
 
 const priceFormatter = new Intl.NumberFormat('es-AR', {
   style: 'currency',
@@ -9,12 +10,23 @@ const priceFormatter = new Intl.NumberFormat('es-AR', {
   maximumFractionDigits: 2,
 })
 
+const resolveCartImage = (value) => {
+  if (!value) return ''
+  const trimmed = value.trim()
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed
+  }
+  return `/${trimmed.replace(/^\/+/, '')}`
+}
+
 function Cart() {
   const { items, updateQuantity, removeItem, totalPrice, clearCart } = useCart()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, token } = useAuth()
   const hasItems = items.length > 0
   const navigate = useNavigate()
-  const [showCheckout, setShowCheckout] = useState(false)
+  const [showSuccess, setShowSuccess] = useState(false)
+  const [checkoutError, setCheckoutError] = useState('')
+  const [isProcessing, setIsProcessing] = useState(false)
 
   const handleQuantityChange = (id, delta) => {
     const target = items.find((item) => item.id === id)
@@ -23,29 +35,45 @@ function Cart() {
     updateQuantity(id, next)
   }
 
-  const handleCheckout = () => {
-    if (!hasItems) return
-    if (!isAuthenticated) {
+  const handleCheckout = async () => {
+    if (!hasItems || !items.length) return
+    if (!isAuthenticated || !token) {
       alert('Iniciá sesión para completar tu compra.')
       navigate('/login')
       return
     }
-    setShowCheckout(true)
+    const payload = items.map((item) => ({
+      producto_id: item.id,
+      cantidad: item.quantity,
+    }))
+    setCheckoutError('')
+    setIsProcessing(true)
+    try {
+      await createPurchase(payload, token)
+      clearCart()
+      setShowSuccess(true)
+    } catch (error) {
+      setCheckoutError(error.message || 'No pudimos procesar tu compra.')
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
-  const closeCheckout = () => setShowCheckout(false)
-
-  const confirmCheckout = () => {
-    clearCart()
-    setShowCheckout(false)
-    navigate('/')
+  const closeSuccessModal = () => setShowSuccess(false)
+  const goToPurchases = () => {
+    setShowSuccess(false)
+    navigate('/mis-acciones')
+  }
+  const goToShop = () => {
+    setShowSuccess(false)
+    navigate('/shop')
   }
 
   return (
     <main className="cart container">
       <section className="cart-list">
         {items.map((item) => {
-          const imageSrc = item.imagen ? encodeURI(`/${item.imagen}`) : ''
+          const imageSrc = resolveCartImage(item.imagen)
           const unitPrice = typeof item.precio === 'number' ? item.precio : item.precioUSD || 0
           return (
             <article className="cart-item" key={item.id}>
@@ -122,36 +150,42 @@ function Cart() {
           <button
             className="btn dark"
             type="button"
-            disabled={!hasItems || !isAuthenticated}
+            disabled={!hasItems || !isAuthenticated || isProcessing}
             onClick={handleCheckout}
           >
-            PAGAR
+            {isProcessing ? 'Procesando...' : 'PAGAR'}
           </button>
         </div>
+
+        {checkoutError && (
+          <p className="form-error" role="alert">
+            {checkoutError}
+          </p>
+        )}
 
         <p className="sum-note">
           {isAuthenticated ? 'Impuestos y envío calculados en el checkout.' : 'Iniciá sesión para finalizar tu compra.'}
         </p>
       </aside>
 
-      {showCheckout ? (
+      {showSuccess ? (
         <>
           <button
             type="button"
             className="product-overlay"
-            onClick={closeCheckout}
+            onClick={closeSuccessModal}
             aria-label="Cerrar confirmación"
           />
           <div className="checkout-modal" role="dialog" aria-modal="true" aria-labelledby="checkout-title">
             <div className="checkout-card">
               <h3 id="checkout-title">¡Gracias por tu compra!</h3>
-              <p>Tu pedido fue recibido correctamente. En breve recibirás un mail con el detalle.</p>
+              <p>Tu pedido fue recibido correctamente. En breve verás el detalle en “Mis acciones”.</p>
               <div className="checkout-actions">
-                <button type="button" className="btn ghost" onClick={closeCheckout}>
-                  Seguir en el carrito
+                <button type="button" className="btn ghost" onClick={goToShop}>
+                  Seguir explorando
                 </button>
-                <button type="button" className="btn primary" onClick={confirmCheckout}>
-                  Volver al inicio
+                <button type="button" className="btn primary" onClick={goToPurchases}>
+                  Ver mis compras
                 </button>
               </div>
             </div>

@@ -42,6 +42,8 @@ func main() {
 
 	collection := mongoDB.Collection("products")
 	productRepo := repositories.NewMongoProductRepository(collection)
+	purchaseCollection := mongoDB.Collection("purchases")
+	purchaseRepo := repositories.NewMongoPurchaseRepository(purchaseCollection)
 
 	publisher, err := rabbitmq.NewPublisher(cfg)
 	if err != nil {
@@ -51,6 +53,8 @@ func main() {
 
 	productService := services.NewProductService(productRepo, publisher)
 	productHandler := handlers.NewProductHandler(productService)
+	purchaseService := services.NewPurchaseService(productRepo, purchaseRepo, publisher)
+	purchaseHandler := handlers.NewPurchaseHandler(purchaseService)
 	authMiddleware := middleware.AuthMiddleware(cfg.JWTSecret)
 
 	mux := http.NewServeMux()
@@ -62,6 +66,12 @@ func main() {
 		Get:    http.HandlerFunc(productHandler.GetProduct),
 		Put:    authMiddleware(middleware.RequireAdmin(http.HandlerFunc(productHandler.UpdateProduct))),
 		Delete: authMiddleware(middleware.RequireAdmin(http.HandlerFunc(productHandler.DeleteProduct))),
+	})
+	mux.Handle("/compras", handlers.MethodHandler{
+		Post: authMiddleware(http.HandlerFunc(purchaseHandler.CreatePurchase)),
+	})
+	mux.Handle("/compras/mias", handlers.MethodHandler{
+		Get: authMiddleware(http.HandlerFunc(purchaseHandler.ListMyPurchases)),
 	})
 
 	addr := ":" + cfg.ServerPort

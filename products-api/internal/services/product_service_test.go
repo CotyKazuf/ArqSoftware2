@@ -27,6 +27,7 @@ func TestCreateProductSuccess(t *testing.T) {
 		Notas:       []string{"bergamota", "menta"},
 		Genero:      "unisex",
 		Marca:       "Aromas",
+		Imagen:      "https://example.com/luna.jpg",
 	}
 
 	product, err := service.CreateProduct(input)
@@ -58,6 +59,7 @@ func TestCreateProductValidationError(t *testing.T) {
 		Ocasion:     "dia",
 		Genero:      "hombre",
 		Marca:       "Marca",
+		Imagen:      "ftp://invalid",
 	}
 
 	_, err := service.CreateProduct(input)
@@ -86,6 +88,7 @@ func TestUpdateProductSuccess(t *testing.T) {
 		Ocasion:     "dia",
 		Genero:      "mujer",
 		Marca:       "Marca",
+		Imagen:      "https://example.com/viejo.jpg",
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
@@ -107,6 +110,7 @@ func TestUpdateProductSuccess(t *testing.T) {
 		Notas:       []string{"sandalo"},
 		Genero:      "mujer",
 		Marca:       "MarcaX",
+		Imagen:      "https://example.com/nuevo.jpg",
 	}
 
 	updated, err := service.UpdateProduct(oid.Hex(), input)

@@ -55,6 +55,7 @@ function ProductForm() {
     name: '',
     marca: '',
     descripcion: '',
+    imagen: '',
     precio: '',
     stock: '',
     tipo: '',
@@ -85,6 +86,7 @@ function ProductForm() {
           name: data.name ?? '',
           marca: data.marca ?? '',
           descripcion: data.descripcion ?? '',
+          imagen: data.imagen ?? '',
           precio: data.precio?.toString() ?? '',
           stock: data.stock?.toString() ?? '',
           tipo: data.tipo ?? '',
@@ -135,6 +137,11 @@ function ProductForm() {
     if (!formValues.name.trim()) errors.push('Ingresá el nombre.')
     if (!formValues.marca.trim()) errors.push('Ingresá la marca.')
     if (!formValues.descripcion.trim()) errors.push('Ingresá la descripción.')
+    if (!formValues.imagen.trim()) {
+      errors.push('Ingresá la URL de la imagen.')
+    } else if (!/^https?:\/\//i.test(formValues.imagen.trim())) {
+      errors.push('La imagen debe comenzar con http:// o https://.')
+    }
     const priceNumber = Number(formValues.precio)
     if (!Number.isFinite(priceNumber) || priceNumber <= 0) errors.push('El precio debe ser mayor a 0.')
     const stockNumber = Number.parseInt(formValues.stock, 10)
@@ -164,6 +171,7 @@ function ProductForm() {
       name: formValues.name.trim(),
       marca: formValues.marca.trim(),
       descripcion: formValues.descripcion.trim(),
+      imagen: formValues.imagen.trim(),
       precio: Number(formValues.precio),
       stock: Number.parseInt(formValues.stock, 10),
       tipo: formValues.tipo,
@@ -242,6 +250,18 @@ function ProductForm() {
                 name="marca"
                 value={formValues.marca}
                 onChange={handleInputChange}
+                required
+              />
+            </label>
+            <label>
+              <span>Imagen (URL)</span>
+              <input
+                type="url"
+                name="imagen"
+                placeholder="https://..."
+                value={formValues.imagen}
+                onChange={handleInputChange}
+                pattern="https?://.*"
                 required
               />
             </label>

@@ -77,6 +77,9 @@ function Navbar() {
                   Panel admin
                 </Link>
               ) : null}
+              <Link className="login-btn ghost" to="/mis-acciones">
+                Mis acciones
+              </Link>
               <span className="nav-user">Hola, {firstName}</span>
               <button type="button" className="login-btn" onClick={logout}>
                 Log out

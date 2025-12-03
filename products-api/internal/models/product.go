@@ -19,6 +19,7 @@ type Product struct {
 	Notas       []string           `bson:"notas" json:"notas"`
 	Genero      string             `bson:"genero" json:"genero"`
 	Marca       string             `bson:"marca" json:"marca"`
+	Imagen      string             `bson:"imagen,omitempty" json:"imagen"`
 	CreatedAt   time.Time          `bson:"created_at" json:"created_at"`
 	UpdatedAt   time.Time          `bson:"updated_at" json:"updated_at"`
 }

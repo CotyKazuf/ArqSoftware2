@@ -29,12 +29,34 @@ Notas:
 | `notas` | `[]string` | Lista de notas olfativas. | Cada nota debe pertenecer a: `bergamota`, `rosa`, `pera`, `menta`, `lavanda`, `sandalo`, `vainilla`, `caramelo`, `eucalipto`, `coco`, `jazmin`, `mandarina`, `amaderado`, `gengibre`, `pachuli`, `cardamomo`. |
 | `genero` | `string` | Público objetivo. | `hombre`, `mujer` o `unisex`. |
 | `marca` | `string` | Marca / casa de fragancias. | Obligatoria. |
+| `imagen` | `string` | URL HTTP/HTTPS con la imagen principal del perfume. | Obligatoria, debe comenzar con `http://` o `https://`. |
 | `created_at` | `time.Time` | Fecha de creación establecida en el servicio. | Se guarda en UTC. |
 | `updated_at` | `time.Time` | Fecha de última modificación. | Actualizada en cada update. |
 
 Notas:
 - Todos los campos string se normalizan en minúsculas para búsquedas consistentes.
 - Los endpoints `POST/PUT/DELETE` obligan a que el solicitante tenga rol `admin`.
+
+## Compras – MongoDB (`purchases`)
+| Campo | Tipo aproximado | Descripción / uso | Validaciones |
+|-------|-----------------|-------------------|--------------|
+| `_id` / `id` | `ObjectID` / `string` | Identificador de la compra. | Generado por Mongo. |
+| `user_id` | `string` | ID del usuario (tomado del JWT). | Obligatorio. |
+| `fecha_compra` | `time.Time` | Fecha/hora en UTC cuando se confirmó la compra. | Seteada automáticamente. |
+| `total` | `float64` | Total pagado (suma de `precio_unitario * cantidad`). | Siempre calculado en backend. |
+| `items` | `[]PurchaseItem` | Snapshot de los perfumes comprados. | Min. 1 item por compra. |
+
+`PurchaseItem`:
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `product_id` | `ObjectID` | Referencia al producto de Mongo. |
+| `nombre` | `string` | Nombre del producto al momento de la compra. |
+| `marca` | `string` | Marca al momento de la compra. |
+| `imagen` | `string` | URL de imagen asociada. |
+| `precio_unitario` | `float64` | Precio por unidad. |
+| `cantidad` | `int` | Cantidad comprada. |
+
+Los registros de compras se crean desde `POST /compras` y se listan por usuario para “Mis acciones”.
 
 ## Índice de Solr – `products-core`
 `search-api` indexa documentos derivados de Mongo en el core `products-core`. Los campos relevantes son:
@@ -52,6 +74,7 @@ Notas:
 | `notas` | `strings` multivaluado | Permite filtrar/buscar por notas específicas. |
 | `genero` | `string` | Filtro por género. |
 | `marca` | `string` | Filtro por marca. |
+| `imagen` | `string` | URL usada por el frontend para renderizar las cards. |
 | `created_at` / `updated_at` | `pdate` | Útiles para ordenamiento y auditoría. |
 
 Sincronización:

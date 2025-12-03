@@ -2,7 +2,9 @@ package middleware
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"products-api/internal/responses"
@@ -64,4 +66,32 @@ func RequireAdmin(next http.Handler) http.Handler {
 func GetUserRole(ctx context.Context) (string, bool) {
 	val, ok := ctx.Value(userRole).(string)
 	return val, ok
+}
+
+// GetUserID extracts the authenticated user's ID from context.
+func GetUserID(ctx context.Context) (string, bool) {
+	val := ctx.Value(userIDKey)
+	switch v := val.(type) {
+	case string:
+		if strings.TrimSpace(v) == "" {
+			return "", false
+		}
+		return v, true
+	case fmt.Stringer:
+		str := strings.TrimSpace(v.String())
+		if str == "" {
+			return "", false
+		}
+		return str, true
+	case uint:
+		return strconv.FormatUint(uint64(v), 10), true
+	case int:
+		return strconv.Itoa(v), true
+	case int64:
+		return strconv.FormatInt(v, 10), true
+	case uint64:
+		return strconv.FormatUint(v, 10), true
+	default:
+		return "", false
+	}
 }
