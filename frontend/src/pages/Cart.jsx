@@ -53,6 +53,7 @@ function Cart() {
       clearCart()
       setShowSuccess(true)
     } catch (error) {
+      console.error('cart: purchase failed', error)
       setCheckoutError(error.message || 'No pudimos procesar tu compra.')
     } finally {
       setIsProcessing(false)

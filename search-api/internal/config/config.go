@@ -13,6 +13,8 @@ type Config struct {
 	SolrURL  string
 	SolrCore string
 
+	ProductsAPIURL string
+
 	MemcachedAddr   string
 	CacheTTLSeconds int
 	CacheMaxEntries int64
@@ -29,6 +31,7 @@ func Load() *Config {
 		JWTSecret:       getEnv("JWT_SECRET", "changeme"),
 		SolrURL:         getEnv("SOLR_URL", "http://localhost:8983/solr"),
 		SolrCore:        getEnv("SOLR_CORE", "products-core"),
+		ProductsAPIURL:  getEnv("PRODUCTS_API_URL", "http://localhost:8081"),
 		MemcachedAddr:   getEnv("MEMCACHED_ADDR", "localhost:11211"),
 		CacheTTLSeconds: getEnvAsInt("CACHE_TTL_SECONDS", 60),
 		CacheMaxEntries: getEnvAsInt64("CACHE_MAX_ENTRIES", 1000),

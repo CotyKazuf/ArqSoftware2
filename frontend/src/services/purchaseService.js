@@ -1,7 +1,7 @@
 import { PRODUCTS_API_BASE_URL } from '../config/api'
 import { httpRequest } from './httpClient'
 
-const BASE_URL = PRODUCTS_API_BASE_URL
+const BASE_URL = PRODUCTS_API_BASE_URL || 'http://localhost:8081'
 
 export async function createPurchase(items, token) {
   return httpRequest({

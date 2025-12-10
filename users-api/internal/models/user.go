@@ -10,6 +10,7 @@ const (
 // User represents a persisted user in MySQL.
 type User struct {
 	ID           uint      `gorm:"primaryKey"`
+	Username     string    `gorm:"size:255;not null;uniqueIndex" json:"username"`
 	Name         string    `gorm:"size:255;not null"`
 	Email        string    `gorm:"size:255;not null;uniqueIndex"`
 	PasswordHash string    `gorm:"size:255;not null"`

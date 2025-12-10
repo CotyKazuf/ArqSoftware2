@@ -71,7 +71,9 @@ func (c *Client) Search(ctx context.Context, filters services.SearchFilters) (*s
 	}
 	params.Set("start", strconv.Itoa(start))
 	params.Set("rows", strconv.Itoa(filters.Size))
-	params.Set("sort", "updated_at desc")
+	if sortParam := buildSolrSort(filters.Sort); sortParam != "" {
+		params.Set("sort", sortParam)
+	}
 
 	endpoint := fmt.Sprintf("%s/%s/select?%s", c.baseURL, c.core, params.Encode())
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
@@ -167,6 +169,28 @@ func convertDocs(docs []map[string]interface{}) []models.ProductDocument {
 		results = append(results, mapSolrDoc(doc))
 	}
 	return results
+}
+
+func buildSolrSort(fields []services.SortField) string {
+	if len(fields) == 0 {
+		fields = []services.SortField{{Field: "updated_at", Order: "desc"}}
+	}
+	parts := make([]string, 0, len(fields))
+	for _, field := range fields {
+		name := strings.TrimSpace(field.Field)
+		if name == "" {
+			continue
+		}
+		order := strings.ToUpper(strings.TrimSpace(field.Order))
+		if order != "DESC" {
+			order = "ASC"
+		}
+		parts = append(parts, fmt.Sprintf("%s %s", name, order))
+	}
+	if len(parts) == 0 {
+		return "updated_at DESC"
+	}
+	return strings.Join(parts, ",")
 }
 
 func mapSolrDoc(doc map[string]interface{}) models.ProductDocument {

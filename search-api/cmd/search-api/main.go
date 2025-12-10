@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"search-api/internal/cache"
+	"search-api/internal/clients"
 	"search-api/internal/config"
 	"search-api/internal/handlers"
 	"search-api/internal/middleware"
@@ -20,13 +21,38 @@ import (
 	"search-api/internal/solr"
 )
 
+func withCORS(next http.Handler) http.Handler {
+	allowedOrigins := map[string]struct{}{
+		"http://localhost:5173": {},
+		"http://127.0.0.1:5173": {},
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
+		if _, ok := allowedOrigins[origin]; ok {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+		}
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Vary", "Origin")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 	cfg := config.Load()
 	rabbitHost := cfg.RabbitURL
 	if parsed, err := url.Parse(cfg.RabbitURL); err == nil {
 		rabbitHost = parsed.Host
 	}
-	log.Printf("search-api config: port=%s solr=%s core=%s memcached=%s rabbit_host=%s rabbit_queue=%s cache_ttl=%ds", cfg.ServerPort, cfg.SolrURL, cfg.SolrCore, cfg.MemcachedAddr, rabbitHost, cfg.RabbitQueue, cfg.CacheTTLSeconds)
+	log.Printf("search-api config: port=%s solr=%s core=%s memcached=%s rabbit_host=%s rabbit_queue=%s cache_ttl=%ds products_api=%s", cfg.ServerPort, cfg.SolrURL, cfg.SolrCore, cfg.MemcachedAddr, rabbitHost, cfg.RabbitQueue, cfg.CacheTTLSeconds, cfg.ProductsAPIURL)
 
 	cacheTTL := time.Duration(cfg.CacheTTLSeconds) * time.Second
 	memoryCache := cache.NewCCacheLayer(cfg.CacheMaxEntries)
@@ -35,7 +61,8 @@ func main() {
 
 	solrClient := solr.NewClient(cfg.SolrURL, cfg.SolrCore)
 	searchService := services.NewSearchService(solrClient, layeredCache, cacheTTL)
-	eventProcessor := services.NewEventProcessor(searchService)
+	productsClient := clients.NewProductsClient(cfg.ProductsAPIURL)
+	eventProcessor := services.NewEventProcessor(searchService, productsClient)
 
 	consumer, err := rabbitmq.NewConsumer(rabbitmq.ConsumerConfig{
 		URL:      cfg.RabbitURL,
@@ -68,9 +95,11 @@ func main() {
 		responses.WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 
+	handler := middleware.RequestLogger(withCORS(mux))
+
 	server := &http.Server{
 		Addr:    ":" + cfg.ServerPort,
-		Handler: middleware.RequestLogger(mux),
+		Handler: handler,
 	}
 
 	go func() {

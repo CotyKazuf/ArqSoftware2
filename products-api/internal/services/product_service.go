@@ -1,12 +1,17 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
+	"products-api/internal/clients"
+	"products-api/internal/middleware"
 	"products-api/internal/models"
 	"products-api/internal/repositories"
 )
@@ -22,6 +27,7 @@ type EventPublisher interface {
 type ProductService struct {
 	repo      repositories.ProductRepository
 	publisher EventPublisher
+	users     UsersClient
 }
 
 // ValidationError represents a user-facing validation failure.
@@ -34,13 +40,24 @@ func (e ValidationError) Error() string {
 	return e.Message
 }
 
+// UsersClient describes the subset of users-api needed by the service.
+type UsersClient interface {
+	GetUserByID(ctx context.Context, id uint, token string) (*clients.UserDTO, error)
+}
+
+var (
+	ErrOwnerNotFound = errors.New("owner not found")
+	ErrForbidden     = errors.New("forbidden")
+)
+
 // NewProductService wires a service with its dependencies.
-func NewProductService(repo repositories.ProductRepository, publisher EventPublisher) *ProductService {
-	return &ProductService{repo: repo, publisher: publisher}
+func NewProductService(repo repositories.ProductRepository, publisher EventPublisher, users UsersClient) *ProductService {
+	return &ProductService{repo: repo, publisher: publisher, users: users}
 }
 
 // CreateProductInput groups the fields required to create a product.
 type CreateProductInput struct {
+	OwnerID     uint
 	Name        string
 	Descripcion string
 	Precio      float64
@@ -55,16 +72,87 @@ type CreateProductInput struct {
 }
 
 // UpdateProductInput mirrors the fields that can be updated.
-type UpdateProductInput = CreateProductInput
+type UpdateProductInput struct {
+	OwnerID     *uint
+	Name        string
+	Descripcion string
+	Precio      float64
+	Stock       int
+	Tipo        string
+	Estacion    string
+	Ocasion     string
+	Notas       []string
+	Genero      string
+	Marca       string
+	Imagen      string
+}
 
 // CreateProduct validates and persists a new product.
-func (s *ProductService) CreateProduct(input CreateProductInput) (*models.Product, error) {
+func (s *ProductService) CreateProduct(ctx context.Context, token string, input CreateProductInput) (*models.Product, error) {
 	if err := validateProductInput(input); err != nil {
 		return nil, err
+	}
+	if err := s.authorizeOwnerAction(ctx, input.OwnerID); err != nil {
+		return nil, err
+	}
+	if err := s.ensureOwnerExists(ctx, input.OwnerID, token); err != nil {
+		return nil, err
+	}
+
+	// Derive slug and tags in parallel to keep the request latency predictable.
+	type derivedResult struct {
+		task string
+		slug string
+		tags []string
+		err  error
+	}
+
+	const (
+		taskSlug = "slug"
+		taskTags = "tags"
+	)
+
+	results := make(chan derivedResult, 2)
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		slug, err := generateSlug(input.Name)
+		results <- derivedResult{task: taskSlug, slug: slug, err: err}
+	}()
+
+	go func() {
+		defer wg.Done()
+		tags, err := generateTags(input.Descripcion, input.Notas)
+		results <- derivedResult{task: taskTags, tags: tags, err: err}
+	}()
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	var (
+		slug string
+		tags []string
+	)
+
+	for res := range results {
+		if res.err != nil {
+			return nil, res.err
+		}
+		switch res.task {
+		case taskSlug:
+			slug = res.slug
+		case taskTags:
+			tags = res.tags
+		}
 	}
 
 	now := time.Now().UTC()
 	product := &models.Product{
+		OwnerID:     input.OwnerID,
 		Name:        strings.TrimSpace(input.Name),
 		Descripcion: strings.TrimSpace(input.Descripcion),
 		Precio:      input.Precio,
@@ -76,6 +164,8 @@ func (s *ProductService) CreateProduct(input CreateProductInput) (*models.Produc
 		Genero:      input.Genero,
 		Marca:       input.Marca,
 		Imagen:      strings.TrimSpace(input.Imagen),
+		Slug:        slug,
+		Tags:        tags,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
@@ -93,27 +183,64 @@ func (s *ProductService) CreateProduct(input CreateProductInput) (*models.Produc
 }
 
 // UpdateProduct updates a product by id.
-func (s *ProductService) UpdateProduct(id string, input UpdateProductInput) (*models.Product, error) {
+func (s *ProductService) UpdateProduct(ctx context.Context, token string, id string, input UpdateProductInput) (*models.Product, error) {
 	product, err := s.repo.FindByID(id)
 	if err != nil {
 		return nil, err
 	}
-
-	if err := validateProductInput(input); err != nil {
+	if err := s.authorizeOwnerAction(ctx, product.OwnerID); err != nil {
 		return nil, err
 	}
 
-	product.Name = strings.TrimSpace(input.Name)
-	product.Descripcion = strings.TrimSpace(input.Descripcion)
-	product.Precio = input.Precio
-	product.Stock = input.Stock
-	product.Tipo = input.Tipo
-	product.Estacion = input.Estacion
-	product.Ocasion = input.Ocasion
-	product.Notas = input.Notas
-	product.Genero = input.Genero
-	product.Marca = input.Marca
-	product.Imagen = strings.TrimSpace(input.Imagen)
+	ownerID := product.OwnerID
+	if input.OwnerID != nil {
+		ownerID = *input.OwnerID
+	}
+
+	payload := CreateProductInput{
+		OwnerID:     ownerID,
+		Name:        input.Name,
+		Descripcion: input.Descripcion,
+		Precio:      input.Precio,
+		Stock:       input.Stock,
+		Tipo:        input.Tipo,
+		Estacion:    input.Estacion,
+		Ocasion:     input.Ocasion,
+		Notas:       input.Notas,
+		Genero:      input.Genero,
+		Marca:       input.Marca,
+		Imagen:      input.Imagen,
+	}
+
+	if err := validateProductInput(payload); err != nil {
+		return nil, err
+	}
+	if err := s.ensureOwnerExists(ctx, ownerID, token); err != nil {
+		return nil, err
+	}
+
+	product.OwnerID = ownerID
+	product.Name = strings.TrimSpace(payload.Name)
+	product.Descripcion = strings.TrimSpace(payload.Descripcion)
+	product.Precio = payload.Precio
+	product.Stock = payload.Stock
+	product.Tipo = payload.Tipo
+	product.Estacion = payload.Estacion
+	product.Ocasion = payload.Ocasion
+	product.Notas = payload.Notas
+	product.Genero = payload.Genero
+	product.Marca = payload.Marca
+	product.Imagen = strings.TrimSpace(payload.Imagen)
+	slug, err := generateSlug(payload.Name)
+	if err != nil {
+		return nil, err
+	}
+	tags, err := generateTags(payload.Descripcion, payload.Notas)
+	if err != nil {
+		return nil, err
+	}
+	product.Slug = slug
+	product.Tags = tags
 	product.UpdatedAt = time.Now().UTC()
 
 	if err := s.repo.Update(product); err != nil {
@@ -130,7 +257,15 @@ func (s *ProductService) UpdateProduct(id string, input UpdateProductInput) (*mo
 }
 
 // DeleteProduct removes a product.
-func (s *ProductService) DeleteProduct(id string) error {
+func (s *ProductService) DeleteProduct(ctx context.Context, id string) error {
+	product, err := s.repo.FindByID(id)
+	if err != nil {
+		return err
+	}
+	if err := s.authorizeOwnerAction(ctx, product.OwnerID); err != nil {
+		return err
+	}
+
 	if err := s.repo.Delete(id); err != nil {
 		return err
 	}
@@ -159,6 +294,42 @@ func (s *ProductService) ListProducts(filter repositories.ProductFilter, paginat
 	return items, pagination, total, err
 }
 
+func (s *ProductService) authorizeOwnerAction(ctx context.Context, ownerID uint) error {
+	if ownerID == 0 {
+		return ValidationError{Code: "VALIDATION_ERROR", Message: "owner_id is required"}
+	}
+	role, _ := middleware.GetUserRole(ctx)
+	if role == "admin" {
+		return nil
+	}
+
+	userIDStr, ok := middleware.GetUserID(ctx)
+	if !ok {
+		return ErrForbidden
+	}
+	parsed, err := strconv.ParseUint(userIDStr, 10, 64)
+	if err != nil {
+		return ErrForbidden
+	}
+	if uint(parsed) != ownerID {
+		return ErrForbidden
+	}
+	return nil
+}
+
+func (s *ProductService) ensureOwnerExists(ctx context.Context, ownerID uint, token string) error {
+	if s.users == nil {
+		return errors.New("users client is required")
+	}
+	if _, err := s.users.GetUserByID(ctx, ownerID, token); err != nil {
+		if errors.Is(err, clients.ErrUserNotFound) {
+			return ErrOwnerNotFound
+		}
+		return fmt.Errorf("users lookup: %w", err)
+	}
+	return nil
+}
+
 func sanitizePagination(page, size int) (int, int) {
 	const (
 		defaultPageSize = 10
@@ -174,6 +345,73 @@ func sanitizePagination(page, size int) (int, int) {
 		size = maxPageSize
 	}
 	return page, size
+}
+
+func generateSlug(name string) (string, error) {
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" {
+		return "", ValidationError{Code: "VALIDATION_ERROR", Message: "name is required"}
+	}
+
+	trimmed = strings.ToLower(trimmed)
+	var b strings.Builder
+	lastDash := false
+
+	for _, r := range trimmed {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+			b.WriteRune(r)
+			lastDash = false
+		case r == ' ' || r == '_' || r == '-':
+			if !lastDash && b.Len() > 0 {
+				b.WriteByte('-')
+				lastDash = true
+			}
+		}
+	}
+
+	slug := strings.Trim(b.String(), "-")
+	if slug == "" {
+		return "", errors.New("unable to generate slug")
+	}
+	return slug, nil
+}
+
+func generateTags(description string, notas []string) ([]string, error) {
+	text := strings.ToLower(strings.TrimSpace(description))
+	if text == "" {
+		return nil, ValidationError{Code: "VALIDATION_ERROR", Message: "descripcion is required"}
+	}
+	seen := make(map[string]struct{})
+	var tags []string
+
+	addTag := func(raw string) {
+		tag := strings.ToLower(strings.Trim(strings.TrimSpace(raw), ",.;:!?"))
+		if tag == "" {
+			return
+		}
+		if _, ok := seen[tag]; ok {
+			return
+		}
+		seen[tag] = struct{}{}
+		tags = append(tags, tag)
+	}
+
+	for _, nota := range notas {
+		addTag(nota)
+	}
+
+	for _, word := range strings.Fields(text) {
+		if len(word) < 4 {
+			continue
+		}
+		addTag(word)
+		if len(tags) >= 12 {
+			break
+		}
+	}
+
+	return tags, nil
 }
 
 var (
@@ -206,6 +444,9 @@ var (
 )
 
 func validateProductInput(input CreateProductInput) error {
+	if input.OwnerID == 0 {
+		return ValidationError{Code: "VALIDATION_ERROR", Message: "owner_id is required"}
+	}
 	if strings.TrimSpace(input.Name) == "" {
 		return ValidationError{Code: "VALIDATION_ERROR", Message: "name is required"}
 	}

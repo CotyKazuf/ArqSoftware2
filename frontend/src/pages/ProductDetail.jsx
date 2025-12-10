@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { useStatus } from '../hooks/useStatus'
 import { getProductById } from '../services/productsService'
+import { createPurchase } from '../services/purchaseService'
 
 const priceFormatter = new Intl.NumberFormat('es-AR', {
   style: 'currency',
@@ -18,9 +19,12 @@ function ProductDetail() {
   const [product, setProduct] = useState(null)
   const [errorMessage, setErrorMessage] = useState('')
   const { addItem } = useCart()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, token } = useAuth()
   const navigate = useNavigate()
   const { isLoading, isError, setLoading, setSuccess, setError } = useStatus('loading')
+  const [purchaseError, setPurchaseError] = useState('')
+  const [isProcessingPurchase, setIsProcessingPurchase] = useState(false)
+  const [showSuccess, setShowSuccess] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -65,6 +69,35 @@ function ProductDetail() {
       },
       1,
     )
+  }
+
+  const handleBuyNow = async () => {
+    if (!product) return
+    if (!isAuthenticated || !token) {
+      alert('Debés iniciar sesión para completar la compra.')
+      navigate('/login', { replace: true, state: { from: `/productos/${product.id}` } })
+      return
+    }
+    setPurchaseError('')
+    setIsProcessingPurchase(true)
+    try {
+      await createPurchase([{ producto_id: product.id, cantidad: 1 }], token)
+      setShowSuccess(true)
+    } catch (error) {
+      setPurchaseError(error.message || 'No pudimos procesar tu compra.')
+    } finally {
+      setIsProcessingPurchase(false)
+    }
+  }
+
+  const closeSuccessModal = () => setShowSuccess(false)
+  const goToPurchases = () => {
+    setShowSuccess(false)
+    navigate('/mis-acciones')
+  }
+  const goToShop = () => {
+    setShowSuccess(false)
+    navigate('/shop')
   }
 
   const metaInfo = useMemo(() => {
@@ -135,6 +168,14 @@ function ProductDetail() {
                 Seguir explorando
               </button>
               <button
+                className="btn primary"
+                type="button"
+                disabled={product.stock <= 0 || isProcessingPurchase}
+                onClick={handleBuyNow}
+              >
+                {isProcessingPurchase ? 'Procesando...' : 'Comprar ahora'}
+              </button>
+              <button
                 className="btn dark"
                 type="button"
                 onClick={handleAddToCart}
@@ -143,8 +184,37 @@ function ProductDetail() {
                 {product.stock <= 0 ? 'Sin stock' : 'Agregar al carrito'}
               </button>
             </div>
+            {purchaseError && (
+              <p className="form-error" role="alert">
+                {purchaseError}
+              </p>
+            )}
           </div>
         </section>
+      ) : null}
+      {showSuccess ? (
+        <>
+          <button
+            type="button"
+            className="product-overlay"
+            onClick={closeSuccessModal}
+            aria-label="Cerrar confirmación"
+          />
+          <div className="checkout-modal" role="dialog" aria-modal="true" aria-labelledby="checkout-title">
+            <div className="checkout-card">
+              <h3 id="checkout-title">¡Gracias por tu compra!</h3>
+              <p>Tu pedido fue recibido correctamente. En breve verás el detalle en “Mis acciones”.</p>
+              <div className="checkout-actions">
+                <button type="button" className="btn ghost" onClick={goToShop}>
+                  Seguir explorando
+                </button>
+                <button type="button" className="btn primary" onClick={goToPurchases}>
+                  Ver mis compras
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
       ) : null}
     </main>
   )

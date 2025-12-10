@@ -9,6 +9,7 @@ function Signup() {
   const { login } = useAuth()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formError, setFormError] = useState('')
+  const [username, setUsername] = useState('')
 
   const handleSubmit = async (event) => {
     event.preventDefault()
@@ -20,6 +21,7 @@ function Signup() {
     const email = formData.get('email')?.toString().trim().toLowerCase() ?? ''
     const password = formData.get('password')?.toString().trim() ?? ''
     const password2 = formData.get('password2')?.toString().trim() ?? ''
+    const user = username.trim()
 
     const errors = []
 
@@ -29,6 +31,10 @@ function Signup() {
 
     if (!hasMinLength(lastName, 2)) {
       errors.push('Ingresá tu apellido.')
+    }
+
+    if (!hasMinLength(user, 3)) {
+      errors.push('Ingresá un nombre de usuario.')
     }
 
     if (!isValidEmail(email)) {
@@ -54,9 +60,10 @@ function Signup() {
     const fullName = `${firstName} ${lastName}`.trim()
 
     try {
-      await registerUser({ name: fullName, email, password })
+      await registerUser({ name: fullName, username: user, email, password })
       await login({ email, password })
       form.reset()
+      setUsername('')
       navigate('/', { replace: true })
     } catch (error) {
       setFormError(error.message || 'No pudimos crear tu cuenta. Intentá nuevamente.')
@@ -81,6 +88,17 @@ function Signup() {
               Apellido
             </label>
             <input id="signup-lastname" name="lastname" type="text" placeholder="Apellido" required />
+
+            <label htmlFor="signup-username">Nombre de usuario</label>
+            <input
+              id="signup-username"
+              name="username"
+              type="text"
+              placeholder="Nombre de usuario"
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              required
+            />
 
             <label className="vh" htmlFor="signup-email">
               Mail

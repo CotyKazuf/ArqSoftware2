@@ -5,6 +5,8 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"users-api/internal/middleware"
 	"users-api/internal/models"
@@ -23,6 +25,7 @@ func NewUserHandler(service *services.UserService) *UserHandler {
 
 type registerRequest struct {
 	Name     string `json:"name"`
+	Username string `json:"username"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
@@ -33,10 +36,11 @@ type loginRequest struct {
 }
 
 type userResponse struct {
-	ID    uint   `json:"id"`
-	Name  string `json:"name"`
-	Email string `json:"email"`
-	Role  string `json:"role"`
+	ID       uint   `json:"id"`
+	Name     string `json:"name"`
+	Username string `json:"username"`
+	Email    string `json:"email"`
+	Role     string `json:"role"`
 }
 
 // Register handles POST /users/register.
@@ -52,7 +56,7 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.service.Register(req.Name, req.Email, req.Password)
+	user, err := h.service.Register(req.Name, req.Username, req.Email, req.Password)
 	var valErr services.ValidationError
 	if errors.As(err, &valErr) {
 		responses.WriteError(w, http.StatusBadRequest, "VALIDATION_ERROR", valErr.Error())
@@ -119,7 +123,7 @@ func (h *UserHandler) Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.service.GetByID(userID)
+	user, err := h.service.GetByID(r.Context(), userID)
 	if errors.Is(err, repositories.ErrUserNotFound) {
 		responses.WriteError(w, http.StatusNotFound, "USER_NOT_FOUND", "User not found")
 		return
@@ -142,9 +146,43 @@ func decodeJSON(r *http.Request, dest interface{}) error {
 
 func sanitizeUser(user *models.User) userResponse {
 	return userResponse{
-		ID:    user.ID,
-		Name:  user.Name,
-		Email: user.Email,
-		Role:  user.Role,
+		ID:       user.ID,
+		Name:     user.Name,
+		Username: user.Username,
+		Email:    user.Email,
+		Role:     user.Role,
 	}
+}
+
+// GetUserByID handles GET /users/:id routes using the raw ServeMux path.
+func (h *UserHandler) GetUserByID(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		responses.WriteError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed")
+		return
+	}
+
+	trimmed := strings.TrimPrefix(r.URL.Path, "/users/")
+	if trimmed == "" || strings.Contains(trimmed, "/") {
+		responses.WriteError(w, http.StatusBadRequest, "INVALID_USER_ID", "User ID must be a positive number")
+		return
+	}
+
+	id, err := strconv.ParseUint(trimmed, 10, 0)
+	if err != nil {
+		responses.WriteError(w, http.StatusBadRequest, "INVALID_USER_ID", "User ID must be a positive number")
+		return
+	}
+
+	user, err := h.service.GetByID(r.Context(), uint(id))
+	if errors.Is(err, repositories.ErrUserNotFound) {
+		responses.WriteError(w, http.StatusNotFound, "USER_NOT_FOUND", "User not found")
+		return
+	}
+	if err != nil {
+		log.Printf("get user by id: %v", err)
+		responses.WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Could not fetch user")
+		return
+	}
+
+	responses.WriteJSON(w, http.StatusOK, sanitizeUser(user))
 }

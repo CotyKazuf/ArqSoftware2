@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"search-api/internal/clients"
 	"search-api/internal/models"
 	"search-api/internal/rabbitmq"
 )
@@ -42,15 +43,12 @@ func TestEventProcessorRoutesEvents(t *testing.T) {
 	repo := &mockIndexRepo{}
 	cache := newMapCache()
 	service := NewSearchService(repo, cache, time.Minute)
-	processor := NewEventProcessor(service)
-
-	createEvent := rabbitmq.ProductEvent{
-		Type: rabbitmq.EventProductCreated,
-		Product: models.ProductDocument{
-			ID:   "abc",
-			Name: "Test",
-		},
+	lookup := &mockProductLookup{
+		product: &clients.ProductDTO{ID: "abc", Name: "Test"},
 	}
+	processor := NewEventProcessor(service, lookup)
+
+	createEvent := rabbitmq.ProductEvent{Type: rabbitmq.EventProductCreated, ProductID: "abc"}
 
 	if err := processor.HandleProductEvent(context.Background(), createEvent); err != nil {
 		t.Fatalf("handle create event: %v", err)
@@ -61,13 +59,11 @@ func TestEventProcessorRoutesEvents(t *testing.T) {
 	if cache.flushes != 1 {
 		t.Fatalf("expected caches to be flushed after create")
 	}
-
-	deleteEvent := rabbitmq.ProductEvent{
-		Type: rabbitmq.EventProductDeleted,
-		Product: models.ProductDocument{
-			ID: "abc",
-		},
+	if lookup.calls != 1 {
+		t.Fatalf("expected product lookup to be called once, got %d", lookup.calls)
 	}
+
+	deleteEvent := rabbitmq.ProductEvent{Type: rabbitmq.EventProductDeleted, ProductID: "abc"}
 	if err := processor.HandleProductEvent(context.Background(), deleteEvent); err != nil {
 		t.Fatalf("handle delete event: %v", err)
 	}
@@ -136,4 +132,18 @@ func (m *mapCache) Flush() error {
 	m.store = map[string][]byte{}
 	m.flushes++
 	return nil
+}
+
+type mockProductLookup struct {
+	product *clients.ProductDTO
+	err     error
+	calls   int
+}
+
+func (m *mockProductLookup) GetProductByID(ctx context.Context, id string) (*clients.ProductDTO, error) {
+	m.calls++
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.product, nil
 }

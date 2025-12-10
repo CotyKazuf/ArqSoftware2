@@ -7,8 +7,6 @@ import (
 	"log"
 	"time"
 
-	"search-api/internal/models"
-
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -21,10 +19,10 @@ const (
 	EventProductDeleted = "product.deleted"
 )
 
-// ProductEvent captures information flowing through RabbitMQ.
+// ProductEvent captures the routing information flowing through RabbitMQ.
 type ProductEvent struct {
-	Type    string
-	Product models.ProductDocument
+	Type      string
+	ProductID string
 }
 
 // EventHandler processes product events.
@@ -145,32 +143,10 @@ func decodeProductEvent(routingKey string, body []byte) (ProductEvent, error) {
 		return ProductEvent{}, fmt.Errorf("decode payload: %w", err)
 	}
 
-	event := ProductEvent{
-		Type: eventType,
-		Product: models.ProductDocument{
-			ID:          payload.ID,
-			Name:        payload.Name,
-			Descripcion: payload.Descripcion,
-			Precio:      payload.Precio,
-			Stock:       payload.Stock,
-			Tipo:        payload.Tipo,
-			Estacion:    payload.Estacion,
-			Ocasion:     payload.Ocasion,
-			Notas:       payload.Notas,
-			Genero:      payload.Genero,
-			Marca:       payload.Marca,
-			Imagen:      payload.Imagen,
-		},
-	}
-
-	if payload.CreatedAt != nil {
-		event.Product.CreatedAt = *payload.CreatedAt
-	}
-	if payload.UpdatedAt != nil {
-		event.Product.UpdatedAt = *payload.UpdatedAt
-	}
-
-	return event, nil
+	return ProductEvent{
+		Type:      eventType,
+		ProductID: payload.ID,
+	}, nil
 }
 
 func normalizeRoutingKey(routingKey string) (string, error) {

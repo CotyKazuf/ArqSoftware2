@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"context"
 	"errors"
 
 	"users-api/internal/models"
@@ -14,7 +15,7 @@ var ErrUserNotFound = errors.New("user not found")
 type UserRepository interface {
 	Create(user *models.User) error
 	FindByEmail(email string) (*models.User, error)
-	FindByID(id uint) (*models.User, error)
+	GetByID(ctx context.Context, id uint) (*models.User, error)
 }
 
 // GormUserRepository is a GORM-based implementation of UserRepository.
@@ -42,9 +43,9 @@ func (r *GormUserRepository) FindByEmail(email string) (*models.User, error) {
 	return &user, nil
 }
 
-func (r *GormUserRepository) FindByID(id uint) (*models.User, error) {
+func (r *GormUserRepository) GetByID(ctx context.Context, id uint) (*models.User, error) {
 	var user models.User
-	err := r.db.First(&user, id).Error
+	err := r.db.WithContext(ctx).First(&user, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, ErrUserNotFound
 	}

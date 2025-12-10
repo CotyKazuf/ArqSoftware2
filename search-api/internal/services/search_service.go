@@ -49,6 +49,13 @@ type SearchFilters struct {
 	Marca    string
 	Page     int
 	Size     int
+	Sort     []SortField
+}
+
+// SortField describes a field and direction for ordering results.
+type SortField struct {
+	Field string
+	Order string
 }
 
 // SearchResult represents a paginated Solr response.
@@ -160,6 +167,7 @@ func normalizeFilters(f SearchFilters) SearchFilters {
 	f.Ocasion = strings.ToLower(strings.TrimSpace(f.Ocasion))
 	f.Genero = strings.ToLower(strings.TrimSpace(f.Genero))
 	f.Marca = strings.ToLower(strings.TrimSpace(f.Marca))
+	f.Sort = normalizeSortFields(f.Sort)
 	return f
 }
 
@@ -181,8 +189,9 @@ func sanitizePagination(page, size int) (int, int) {
 }
 
 func buildCacheKey(f SearchFilters) string {
-	rawKey := fmt.Sprintf("q=%s|tipo=%s|estacion=%s|ocasion=%s|genero=%s|marca=%s|page=%d|size=%d",
-		f.Query, f.Tipo, f.Estacion, f.Ocasion, f.Genero, f.Marca, f.Page, f.Size)
+	sortKey := formatSortKey(f.Sort)
+	rawKey := fmt.Sprintf("q=%s|tipo=%s|estacion=%s|ocasion=%s|genero=%s|marca=%s|page=%d|size=%d|sort=%s",
+		f.Query, f.Tipo, f.Estacion, f.Ocasion, f.Genero, f.Marca, f.Page, f.Size, sortKey)
 	sum := sha256.Sum256([]byte(rawKey))
 	return fmt.Sprintf("search:%x", sum[:])
 }
@@ -213,5 +222,45 @@ func applySearchDefaults(filters SearchFilters) SearchFilters {
 	if filters.Size == 0 {
 		filters.Size = 10
 	}
+	if len(filters.Sort) == 0 {
+		filters.Sort = defaultSortFields()
+	}
 	return filters
+}
+
+func normalizeSortFields(fields []SortField) []SortField {
+	normalized := make([]SortField, 0, len(fields))
+	for _, field := range fields {
+		name := strings.TrimSpace(field.Field)
+		if name == "" {
+			continue
+		}
+		order := strings.ToLower(strings.TrimSpace(field.Order))
+		if order != "desc" {
+			order = "asc"
+		}
+		normalized = append(normalized, SortField{
+			Field: name,
+			Order: order,
+		})
+	}
+	if len(normalized) == 0 {
+		return defaultSortFields()
+	}
+	return normalized
+}
+
+func defaultSortFields() []SortField {
+	return []SortField{{Field: "updated_at", Order: "desc"}}
+}
+
+func formatSortKey(fields []SortField) string {
+	if len(fields) == 0 {
+		fields = defaultSortFields()
+	}
+	parts := make([]string, 0, len(fields))
+	for _, field := range fields {
+		parts = append(parts, fmt.Sprintf("%s:%s", field.Field, field.Order))
+	}
+	return strings.Join(parts, ",")
 }

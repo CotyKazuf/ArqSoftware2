@@ -38,6 +38,7 @@ func (h *SearchHandler) SearchProducts(w http.ResponseWriter, r *http.Request) {
 		Marca:    strings.TrimSpace(query.Get("marca")),
 		Page:     parseInt(query.Get("page"), 1),
 		Size:     parseInt(query.Get("size"), 10),
+		Sort:     parseSortParam(query.Get("sort")),
 	}
 
 	result, err := h.service.SearchProducts(r.Context(), filters)
@@ -86,4 +87,40 @@ func parseInt(value string, def int) int {
 		return def
 	}
 	return parsed
+}
+
+func parseSortParam(raw string) []services.SortField {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return []services.SortField{{Field: "updated_at", Order: "desc"}}
+	}
+	parts := strings.Split(raw, ",")
+	sortFields := make([]services.SortField, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		field := part
+		order := "asc"
+		if idx := strings.Index(part, ":"); idx >= 0 {
+			field = strings.TrimSpace(part[:idx])
+			order = strings.TrimSpace(part[idx+1:])
+		}
+		if field == "" {
+			continue
+		}
+		orderLower := strings.ToLower(order)
+		if orderLower != "desc" {
+			orderLower = "asc"
+		}
+		sortFields = append(sortFields, services.SortField{
+			Field: field,
+			Order: orderLower,
+		})
+	}
+	if len(sortFields) == 0 {
+		return []services.SortField{{Field: "updated_at", Order: "desc"}}
+	}
+	return sortFields
 }

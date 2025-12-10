@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"time"
 
+	"products-api/internal/clients"
 	"products-api/internal/config"
 	"products-api/internal/database"
 	"products-api/internal/handlers"
@@ -15,6 +16,32 @@ import (
 	"products-api/internal/repositories"
 	"products-api/internal/services"
 )
+
+// withCORS agrega los encabezados necesarios para permitir requests del frontend local.
+func withCORS(next http.Handler) http.Handler {
+	allowedOrigins := map[string]struct{}{
+		"http://localhost:5173": {},
+		"http://127.0.0.1:5173": {},
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
+		if _, ok := allowedOrigins[origin]; ok {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+		}
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Vary", "Origin")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
 
 func main() {
 	cfg := config.Load()
@@ -51,7 +78,8 @@ func main() {
 	}
 	defer publisher.Close()
 
-	productService := services.NewProductService(productRepo, publisher)
+	usersClient := clients.NewUsersClient(cfg.UsersAPIBaseURL)
+	productService := services.NewProductService(productRepo, publisher, usersClient)
 	productHandler := handlers.NewProductHandler(productService)
 	purchaseService := services.NewPurchaseService(productRepo, purchaseRepo, publisher)
 	purchaseHandler := handlers.NewPurchaseHandler(purchaseService)
@@ -60,12 +88,12 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle("/products", handlers.MethodHandler{
 		Get:  http.HandlerFunc(productHandler.ListProducts),
-		Post: authMiddleware(middleware.RequireAdmin(http.HandlerFunc(productHandler.CreateProduct))),
+		Post: authMiddleware(http.HandlerFunc(productHandler.CreateProduct)),
 	})
 	mux.Handle("/products/", handlers.MethodHandler{
 		Get:    http.HandlerFunc(productHandler.GetProduct),
-		Put:    authMiddleware(middleware.RequireAdmin(http.HandlerFunc(productHandler.UpdateProduct))),
-		Delete: authMiddleware(middleware.RequireAdmin(http.HandlerFunc(productHandler.DeleteProduct))),
+		Put:    authMiddleware(http.HandlerFunc(productHandler.UpdateProduct)),
+		Delete: authMiddleware(http.HandlerFunc(productHandler.DeleteProduct)),
 	})
 	mux.Handle("/compras", handlers.MethodHandler{
 		Post: authMiddleware(http.HandlerFunc(purchaseHandler.CreatePurchase)),
@@ -76,7 +104,11 @@ func main() {
 
 	addr := ":" + cfg.ServerPort
 	log.Printf("products-api listening on %s", addr)
-	if err := http.ListenAndServe(addr, middleware.RequestLogger(mux)); err != nil {
+
+	// encadenamos: mux -> CORS -> logger
+	handler := middleware.RequestLogger(withCORS(mux))
+
+	if err := http.ListenAndServe(addr, handler); err != nil {
 		log.Fatalf("server error: %v", err)
 	}
 }

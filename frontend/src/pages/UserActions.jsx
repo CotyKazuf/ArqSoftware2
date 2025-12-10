@@ -38,6 +38,7 @@ function UserActions() {
         setPurchases(Array.isArray(data) ? data : [])
         setSuccess()
       } catch (error) {
+        console.error('user actions: failed to load purchases', error)
         if (!active) return
         setPurchases([])
         setErrorMessage(error.message || 'No pudimos obtener tus compras.')

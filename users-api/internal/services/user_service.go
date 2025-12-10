@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"regexp"
@@ -40,12 +41,13 @@ func NewUserService(repo repositories.UserRepository, jwtSecret string, jwtExpir
 	}
 }
 
-func (s *UserService) Register(name, email, password string) (*models.User, error) {
+func (s *UserService) Register(name, username, email, password string) (*models.User, error) {
 	name = strings.TrimSpace(name)
+	username = strings.TrimSpace(username)
 	email = normalizeEmail(email)
 	password = strings.TrimSpace(password)
 
-	if err := validateRegisterInput(name, email, password); err != nil {
+	if err := validateRegisterInput(name, username, email, password); err != nil {
 		return nil, err
 	}
 
@@ -64,6 +66,7 @@ func (s *UserService) Register(name, email, password string) (*models.User, erro
 
 	user := &models.User{
 		Name:         name,
+		Username:     username,
 		Email:        email,
 		PasswordHash: hashed,
 		Role:         models.RoleNormal,
@@ -104,8 +107,8 @@ func (s *UserService) Login(email, password string) (string, *models.User, error
 	return token, user, nil
 }
 
-func (s *UserService) GetByID(id uint) (*models.User, error) {
-	return s.repo.FindByID(id)
+func (s *UserService) GetByID(ctx context.Context, id uint) (*models.User, error) {
+	return s.repo.GetByID(ctx, id)
 }
 
 // EnsureAdminUser seeds a default admin if not already present.
@@ -131,6 +134,7 @@ func (s *UserService) EnsureAdminUser(name, email, password string) error {
 
 	admin := &models.User{
 		Name:         name,
+		Username:     strings.TrimSpace(name),
 		Email:        email,
 		PasswordHash: hashed,
 		Role:         models.RoleAdmin,
@@ -144,9 +148,12 @@ func (s *UserService) EnsureAdminUser(name, email, password string) error {
 
 var emailRegex = regexp.MustCompile(`^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$`)
 
-func validateRegisterInput(name, email, password string) error {
+func validateRegisterInput(name, username, email, password string) error {
 	if strings.TrimSpace(name) == "" {
 		return ValidationError{Reason: "name is required"}
+	}
+	if strings.TrimSpace(username) == "" {
+		return ValidationError{Reason: "username is required"}
 	}
 	if err := validateEmail(email); err != nil {
 		return err

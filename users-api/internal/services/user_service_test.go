@@ -1,6 +1,8 @@
 package services
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -42,7 +44,7 @@ func (m *mockUserRepo) FindByEmail(email string) (*models.User, error) {
 	return nil, repositories.ErrUserNotFound
 }
 
-func (m *mockUserRepo) FindByID(id uint) (*models.User, error) {
+func (m *mockUserRepo) GetByID(ctx context.Context, id uint) (*models.User, error) {
 	if user, ok := m.byID[id]; ok {
 		return user, nil
 	}
@@ -96,5 +98,38 @@ func TestUserServiceLoginUserNotFound(t *testing.T) {
 	_, _, err := service.Login("missing@example.com", "secret")
 	if err == nil || err != ErrInvalidCredentials {
 		t.Fatalf("expected invalid credentials error for missing user, got %v", err)
+	}
+}
+
+func TestUserServiceGetByIDSuccess(t *testing.T) {
+	repo := newMockUserRepo()
+	user := &models.User{
+		Name:         "Jane",
+		Username:     "jane",
+		Email:        "jane@example.com",
+		PasswordHash: "hash",
+		Role:         models.RoleNormal,
+	}
+	if err := repo.Create(user); err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+
+	service := NewUserService(repo, "jwtsecret", 15)
+	found, err := service.GetByID(context.Background(), user.ID)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if found == nil || found.ID != user.ID {
+		t.Fatalf("expected to find user with id %d", user.ID)
+	}
+}
+
+func TestUserServiceGetByIDNotFound(t *testing.T) {
+	repo := newMockUserRepo()
+	service := NewUserService(repo, "jwtsecret", 15)
+
+	_, err := service.GetByID(context.Background(), 99)
+	if err == nil || !errors.Is(err, repositories.ErrUserNotFound) {
+		t.Fatalf("expected ErrUserNotFound, got %v", err)
 	}
 }

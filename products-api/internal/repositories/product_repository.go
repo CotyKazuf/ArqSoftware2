@@ -80,8 +80,10 @@ func (r *MongoProductRepository) Update(p *models.Product) error {
 	filter := bson.M{"_id": p.ID}
 	update := bson.M{
 		"$set": bson.M{
+			"owner_id":    p.OwnerID,
 			"name":        p.Name,
 			"descripcion": p.Descripcion,
+			"slug":        p.Slug,
 			"precio":      p.Precio,
 			"stock":       p.Stock,
 			"tipo":        p.Tipo,
@@ -91,6 +93,7 @@ func (r *MongoProductRepository) Update(p *models.Product) error {
 			"genero":      p.Genero,
 			"marca":       p.Marca,
 			"imagen":      p.Imagen,
+			"tags":        p.Tags,
 			"updated_at":  p.UpdatedAt,
 		},
 	}

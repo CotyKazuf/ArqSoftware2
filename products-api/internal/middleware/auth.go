@@ -95,3 +95,21 @@ func GetUserID(ctx context.Context) (string, bool) {
 		return "", false
 	}
 }
+
+// GetUserEmail extracts the authenticated user email from context.
+func GetUserEmail(ctx context.Context) (string, bool) {
+	val, ok := ctx.Value(userEmail).(string)
+	return val, ok
+}
+
+// ContextWithUser injects claims into a context, useful for tests or internal calls.
+func ContextWithUser(ctx context.Context, userID uint, role string, email string) context.Context {
+	ctx = context.WithValue(ctx, userIDKey, userID)
+	if role != "" {
+		ctx = context.WithValue(ctx, userRole, role)
+	}
+	if email != "" {
+		ctx = context.WithValue(ctx, userEmail, email)
+	}
+	return ctx
+}
