@@ -124,6 +124,8 @@ func productPayload(p *models.Product) map[string]interface{} {
 		"genero":      p.Genero,
 		"marca":       p.Marca,
 		"imagen":      p.Imagen,
+		"owner_id":    p.OwnerID,
+		"score":       p.Score,
 		"created_at":  p.CreatedAt,
 		"updated_at":  p.UpdatedAt,
 	}

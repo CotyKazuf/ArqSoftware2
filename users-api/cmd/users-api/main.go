@@ -35,6 +35,7 @@ func main() {
 	mux.HandleFunc("/users/register", userHandler.Register)
 	mux.HandleFunc("/users/login", userHandler.Login)
 	mux.Handle("/users/me", authMiddleware(http.HandlerFunc(userHandler.Me)))
+	mux.Handle("/users/", authMiddleware(http.HandlerFunc(userHandler.GetUserByID)))
 
 	addr := ":" + cfg.ServerPort
 	log.Printf("users-api listening on %s", addr)

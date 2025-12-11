@@ -5,6 +5,8 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"users-api/internal/middleware"
 	"users-api/internal/models"
@@ -133,6 +135,44 @@ func (h *UserHandler) Me(w http.ResponseWriter, r *http.Request) {
 	responses.WriteJSON(w, http.StatusOK, sanitizeUser(user))
 }
 
+// GetUserByID handles GET /users/{id} and allows only the owner or an admin to read profiles.
+func (h *UserHandler) GetUserByID(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		responses.WriteError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed")
+		return
+	}
+
+	targetID, err := extractUserID(r.URL.Path)
+	if err != nil {
+		responses.WriteError(w, http.StatusBadRequest, "INVALID_ID", "User ID is required")
+		return
+	}
+
+	requesterID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		responses.WriteError(w, http.StatusUnauthorized, "AUTHENTICATION_FAILED", "Authorization header is required")
+		return
+	}
+	role, _ := middleware.GetUserRole(r.Context())
+	if role != models.RoleAdmin && requesterID != targetID {
+		responses.WriteError(w, http.StatusForbidden, "FORBIDDEN", "Admin role or ownership required")
+		return
+	}
+
+	user, err := h.service.GetByID(targetID)
+	if errors.Is(err, repositories.ErrUserNotFound) {
+		responses.WriteError(w, http.StatusNotFound, "USER_NOT_FOUND", "User not found")
+		return
+	}
+	if err != nil {
+		log.Printf("get user by id: %v", err)
+		responses.WriteError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Could not fetch user")
+		return
+	}
+
+	responses.WriteJSON(w, http.StatusOK, sanitizeUser(user))
+}
+
 func decodeJSON(r *http.Request, dest interface{}) error {
 	defer r.Body.Close()
 	dec := json.NewDecoder(r.Body)
@@ -147,4 +187,20 @@ func sanitizeUser(user *models.User) userResponse {
 		Email: user.Email,
 		Role:  user.Role,
 	}
+}
+
+func extractUserID(path string) (uint, error) {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(parts) < 2 {
+		return 0, http.ErrNoLocation
+	}
+	idStr := strings.TrimSpace(parts[len(parts)-1])
+	if idStr == "" {
+		return 0, http.ErrNoLocation
+	}
+	parsed, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return uint(parsed), nil
 }

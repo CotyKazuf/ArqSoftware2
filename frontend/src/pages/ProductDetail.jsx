@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { useStatus } from '../hooks/useStatus'
 import { getProductById } from '../services/productsService'
+import { createPurchase } from '../services/purchaseService'
 
 const priceFormatter = new Intl.NumberFormat('es-AR', {
   style: 'currency',
@@ -17,8 +18,10 @@ function ProductDetail() {
   const { id } = useParams()
   const [product, setProduct] = useState(null)
   const [errorMessage, setErrorMessage] = useState('')
+  const [actionError, setActionError] = useState('')
+  const [isBuying, setIsBuying] = useState(false)
   const { addItem } = useCart()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, token } = useAuth()
   const navigate = useNavigate()
   const { isLoading, isError, setLoading, setSuccess, setError } = useStatus('loading')
 
@@ -65,6 +68,25 @@ function ProductDetail() {
       },
       1,
     )
+  }
+
+  const handleBuyNow = async () => {
+    if (!product) return
+    if (!isAuthenticated || !token) {
+      alert('Debés iniciar sesión para comprar.')
+      navigate('/login', { replace: true, state: { from: `/productos/${product.id}` } })
+      return
+    }
+    setIsBuying(true)
+    setActionError('')
+    try {
+      await createPurchase([{ producto_id: product.id, cantidad: 1 }], token)
+      navigate('/mis-acciones')
+    } catch (error) {
+      setActionError(error.message || 'No pudimos completar la compra.')
+    } finally {
+      setIsBuying(false)
+    }
   }
 
   const metaInfo = useMemo(() => {
@@ -142,7 +164,20 @@ function ProductDetail() {
               >
                 {product.stock <= 0 ? 'Sin stock' : 'Agregar al carrito'}
               </button>
+              <button
+                className="btn primary"
+                type="button"
+                onClick={handleBuyNow}
+                disabled={product.stock <= 0 || isBuying}
+              >
+                {isBuying ? 'Comprando...' : 'Comprar ahora'}
+              </button>
             </div>
+            {actionError ? (
+              <p className="form-error" role="alert">
+                {actionError}
+              </p>
+            ) : null}
           </div>
         </section>
       ) : null}

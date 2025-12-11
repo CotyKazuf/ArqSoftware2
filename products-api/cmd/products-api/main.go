@@ -51,7 +51,7 @@ func main() {
 	}
 	defer publisher.Close()
 
-	productService := services.NewProductService(productRepo, publisher)
+	productService := services.NewProductService(productRepo, publisher, cfg.UsersAPIURL)
 	productHandler := handlers.NewProductHandler(productService)
 	purchaseService := services.NewPurchaseService(productRepo, purchaseRepo, publisher)
 	purchaseHandler := handlers.NewPurchaseHandler(purchaseService)
@@ -60,12 +60,12 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle("/products", handlers.MethodHandler{
 		Get:  http.HandlerFunc(productHandler.ListProducts),
-		Post: authMiddleware(middleware.RequireAdmin(http.HandlerFunc(productHandler.CreateProduct))),
+		Post: authMiddleware(http.HandlerFunc(productHandler.CreateProduct)),
 	})
 	mux.Handle("/products/", handlers.MethodHandler{
 		Get:    http.HandlerFunc(productHandler.GetProduct),
-		Put:    authMiddleware(middleware.RequireAdmin(http.HandlerFunc(productHandler.UpdateProduct))),
-		Delete: authMiddleware(middleware.RequireAdmin(http.HandlerFunc(productHandler.DeleteProduct))),
+		Put:    authMiddleware(http.HandlerFunc(productHandler.UpdateProduct)),
+		Delete: authMiddleware(http.HandlerFunc(productHandler.DeleteProduct)),
 	})
 	mux.Handle("/compras", handlers.MethodHandler{
 		Post: authMiddleware(http.HandlerFunc(purchaseHandler.CreatePurchase)),
@@ -76,7 +76,8 @@ func main() {
 
 	addr := ":" + cfg.ServerPort
 	log.Printf("products-api listening on %s", addr)
-	if err := http.ListenAndServe(addr, middleware.RequestLogger(mux)); err != nil {
+	handler := middleware.CORS(middleware.RequestLogger(mux))
+	if err := http.ListenAndServe(addr, handler); err != nil {
 		log.Fatalf("server error: %v", err)
 	}
 }

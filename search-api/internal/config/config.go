@@ -17,6 +17,8 @@ type Config struct {
 	CacheTTLSeconds int
 	CacheMaxEntries int64
 
+	ProductsAPIURL string
+
 	RabbitURL      string
 	RabbitExchange string
 	RabbitQueue    string
@@ -32,6 +34,7 @@ func Load() *Config {
 		MemcachedAddr:   getEnv("MEMCACHED_ADDR", "localhost:11211"),
 		CacheTTLSeconds: getEnvAsInt("CACHE_TTL_SECONDS", 60),
 		CacheMaxEntries: getEnvAsInt64("CACHE_MAX_ENTRIES", 1000),
+		ProductsAPIURL:  getEnv("PRODUCTS_API_URL", "http://localhost:8081"),
 		RabbitURL:       getEnv("RABBITMQ_URL", "amqp://admin:admin@localhost:5672/"),
 		RabbitExchange:  getEnv("RABBITMQ_EXCHANGE", "products-exchange"),
 		RabbitQueue:     getEnv("RABBITMQ_QUEUE", "search-products-queue"),

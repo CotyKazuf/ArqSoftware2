@@ -35,7 +35,7 @@ func main() {
 
 	solrClient := solr.NewClient(cfg.SolrURL, cfg.SolrCore)
 	searchService := services.NewSearchService(solrClient, layeredCache, cacheTTL)
-	eventProcessor := services.NewEventProcessor(searchService)
+	eventProcessor := services.NewEventProcessor(searchService, cfg.ProductsAPIURL)
 
 	consumer, err := rabbitmq.NewConsumer(rabbitmq.ConsumerConfig{
 		URL:      cfg.RabbitURL,
@@ -70,7 +70,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:    ":" + cfg.ServerPort,
-		Handler: middleware.RequestLogger(mux),
+		Handler: middleware.CORS(middleware.RequestLogger(mux)),
 	}
 
 	go func() {

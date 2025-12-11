@@ -71,7 +71,19 @@ func (c *Client) Search(ctx context.Context, filters services.SearchFilters) (*s
 	}
 	params.Set("start", strconv.Itoa(start))
 	params.Set("rows", strconv.Itoa(filters.Size))
-	params.Set("sort", "updated_at desc")
+	if len(filters.Sorts) == 0 {
+		params.Set("sort", "updated_at desc")
+	} else {
+		var sorts []string
+		for _, s := range filters.Sorts {
+			order := "asc"
+			if s.Desc {
+				order = "desc"
+			}
+			sorts = append(sorts, fmt.Sprintf("%s %s", escapeTerm(s.Field), order))
+		}
+		params.Set("sort", strings.Join(sorts, ","))
+	}
 
 	endpoint := fmt.Sprintf("%s/%s/select?%s", c.baseURL, c.core, params.Encode())
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)

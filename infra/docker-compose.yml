@@ -108,6 +108,7 @@ services:
       MONGO_URI: mongodb://mongo:27017
       MONGO_DB_NAME: ${MONGO_DB:-productsdb}
       JWT_SECRET: ${JWT_SECRET:-changeme}
+      USERS_API_URL: http://users-api:8080
       RABBITMQ_URL: amqp://admin:admin@rabbitmq:5672/
       RABBITMQ_EXCHANGE: ${RABBITMQ_EXCHANGE:-products-exchange}
       PORT: 8081
@@ -133,6 +134,7 @@ services:
       CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS:-60}
       CACHE_MAX_ENTRIES: ${CACHE_MAX_ENTRIES:-1000}
       JWT_SECRET: ${JWT_SECRET:-changeme}
+      PRODUCTS_API_URL: http://products-api:8081
       RABBITMQ_URL: amqp://admin:admin@rabbitmq:5672/
       RABBITMQ_EXCHANGE: ${RABBITMQ_EXCHANGE:-products-exchange}
       RABBITMQ_QUEUE: ${RABBITMQ_QUEUE:-search-products-queue}

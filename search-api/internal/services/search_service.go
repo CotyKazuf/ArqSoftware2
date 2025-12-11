@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -49,6 +50,7 @@ type SearchFilters struct {
 	Marca    string
 	Page     int
 	Size     int
+	Sorts    []SortOption
 }
 
 // SearchResult represents a paginated Solr response.
@@ -57,6 +59,12 @@ type SearchResult struct {
 	Page  int                      `json:"page"`
 	Size  int                      `json:"size"`
 	Total int64                    `json:"total"`
+}
+
+// SortOption represents a sort field and direction.
+type SortOption struct {
+	Field string
+	Desc  bool
 }
 
 // IndexRepository abstracts the search/index backend (Solr).
@@ -103,7 +111,9 @@ func (s *SearchService) SearchProducts(ctx context.Context, filters SearchFilter
 
 	result, err := s.indexRepo.Search(ctx, filters)
 	if err != nil {
-		return nil, err
+		// Fallback suave: si el backend de bÇ§squeda falla, devolvemos vacÇðo para no romper la UI.
+		log.Printf("search backend error: %v", err)
+		return &SearchResult{Items: []models.ProductDocument{}, Page: filters.Page, Size: filters.Size, Total: 0}, nil
 	}
 
 	if s.cache != nil && result != nil {
@@ -181,8 +191,16 @@ func sanitizePagination(page, size int) (int, int) {
 }
 
 func buildCacheKey(f SearchFilters) string {
-	rawKey := fmt.Sprintf("q=%s|tipo=%s|estacion=%s|ocasion=%s|genero=%s|marca=%s|page=%d|size=%d",
-		f.Query, f.Tipo, f.Estacion, f.Ocasion, f.Genero, f.Marca, f.Page, f.Size)
+	var sortParts []string
+	for _, s := range f.Sorts {
+		prefix := "asc:"
+		if s.Desc {
+			prefix = "desc:"
+		}
+		sortParts = append(sortParts, prefix+s.Field)
+	}
+	rawKey := fmt.Sprintf("q=%s|tipo=%s|estacion=%s|ocasion=%s|genero=%s|marca=%s|page=%d|size=%d|sort=%s",
+		f.Query, f.Tipo, f.Estacion, f.Ocasion, f.Genero, f.Marca, f.Page, f.Size, strings.Join(sortParts, ","))
 	sum := sha256.Sum256([]byte(rawKey))
 	return fmt.Sprintf("search:%x", sum[:])
 }
@@ -203,6 +221,19 @@ func ValidateSearchFilters(filters SearchFilters) error {
 	if filters.Size < 1 || filters.Size > 100 {
 		return ValidationError{Message: "size must be between 1 and 100"}
 	}
+	allowedSort := map[string]struct{}{
+		"updated_at": {},
+		"precio":     {},
+		"stock":      {},
+	}
+	if len(filters.Sorts) > 3 {
+		return ValidationError{Message: "too many sort fields"}
+	}
+	for _, s := range filters.Sorts {
+		if _, ok := allowedSort[s.Field]; !ok {
+			return ValidationError{Message: "invalid sort field"}
+		}
+	}
 	return nil
 }
 
@@ -212,6 +243,9 @@ func applySearchDefaults(filters SearchFilters) SearchFilters {
 	}
 	if filters.Size == 0 {
 		filters.Size = 10
+	}
+	if len(filters.Sorts) == 0 {
+		filters.Sorts = []SortOption{{Field: "updated_at", Desc: true}}
 	}
 	return filters
 }

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"products-api/internal/middleware"
 	"products-api/internal/repositories"
 	"products-api/internal/responses"
 	"products-api/internal/services"
@@ -88,13 +89,20 @@ func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 
 // CreateProduct handles POST /products.
 func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok || strings.TrimSpace(userID) == "" {
+		responses.WriteError(w, http.StatusUnauthorized, "AUTHENTICATION_FAILED", "User session required")
+		return
+	}
+	authHeader := r.Header.Get("Authorization")
+
 	var req productRequest
 	if err := decodeJSON(r, &req); err != nil {
 		responses.WriteError(w, http.StatusBadRequest, "INVALID_JSON", "Invalid JSON payload")
 		return
 	}
 
-	product, err := h.service.CreateProduct(toInput(req))
+	product, err := h.service.CreateProduct(toInput(req, userID), authHeader)
 	if err != nil {
 		handleServiceError(w, err)
 		return
@@ -105,6 +113,15 @@ func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 
 // UpdateProduct handles PUT /products/:id.
 func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok || strings.TrimSpace(userID) == "" {
+		responses.WriteError(w, http.StatusUnauthorized, "AUTHENTICATION_FAILED", "User session required")
+		return
+	}
+	role, _ := middleware.GetUserRole(r.Context())
+	isAdmin := role == "admin"
+	authHeader := r.Header.Get("Authorization")
+
 	id, err := extractID(r.URL.Path)
 	if err != nil {
 		responses.WriteError(w, http.StatusBadRequest, "INVALID_ID", "Product ID is required")
@@ -117,7 +134,7 @@ func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	product, err := h.service.UpdateProduct(id, toInput(req))
+	product, err := h.service.UpdateProduct(id, userID, isAdmin, authHeader, toInput(req, userID))
 	if err != nil {
 		handleServiceError(w, err)
 		return
@@ -128,13 +145,22 @@ func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 
 // DeleteProduct handles DELETE /products/:id.
 func (h *ProductHandler) DeleteProduct(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok || strings.TrimSpace(userID) == "" {
+		responses.WriteError(w, http.StatusUnauthorized, "AUTHENTICATION_FAILED", "User session required")
+		return
+	}
+	role, _ := middleware.GetUserRole(r.Context())
+	isAdmin := role == "admin"
+	authHeader := r.Header.Get("Authorization")
+
 	id, err := extractID(r.URL.Path)
 	if err != nil {
 		responses.WriteError(w, http.StatusBadRequest, "INVALID_ID", "Product ID is required")
 		return
 	}
 
-	if err := h.service.DeleteProduct(id); err != nil {
+	if err := h.service.DeleteProduct(id, userID, isAdmin, authHeader); err != nil {
 		handleServiceError(w, err)
 		return
 	}
@@ -165,7 +191,7 @@ func extractID(path string) (string, error) {
 	return id, nil
 }
 
-func toInput(req productRequest) services.CreateProductInput {
+func toInput(req productRequest, ownerID string) services.CreateProductInput {
 	return services.CreateProductInput{
 		Name:        req.Name,
 		Descripcion: req.Descripcion,
@@ -178,6 +204,7 @@ func toInput(req productRequest) services.CreateProductInput {
 		Genero:      req.Genero,
 		Marca:       req.Marca,
 		Imagen:      req.Imagen,
+		OwnerID:     ownerID,
 	}
 }
 
@@ -188,7 +215,11 @@ func handleServiceError(w http.ResponseWriter, err error) {
 		if code == "" {
 			code = "VALIDATION_ERROR"
 		}
-		responses.WriteError(w, http.StatusBadRequest, code, valErr.Error())
+		status := http.StatusBadRequest
+		if strings.ToUpper(code) == "FORBIDDEN" {
+			status = http.StatusForbidden
+		}
+		responses.WriteError(w, status, code, valErr.Error())
 		return
 	}
 

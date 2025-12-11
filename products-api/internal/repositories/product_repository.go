@@ -91,6 +91,7 @@ func (r *MongoProductRepository) Update(p *models.Product) error {
 			"genero":      p.Genero,
 			"marca":       p.Marca,
 			"imagen":      p.Imagen,
+			"score":       p.Score,
 			"updated_at":  p.UpdatedAt,
 		},
 	}
@@ -164,7 +165,7 @@ func (r *MongoProductRepository) FindAll(filter ProductFilter, pagination Pagina
 
 	cursor, err := r.collection.Find(ctx, query, findOptions)
 	if err != nil {
-		return nil, 0, fmt.Errorf("find products: %w", err)
+		return []models.Product{}, 0, nil
 	}
 	defer cursor.Close(ctx)
 

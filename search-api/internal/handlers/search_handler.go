@@ -39,6 +39,9 @@ func (h *SearchHandler) SearchProducts(w http.ResponseWriter, r *http.Request) {
 		Page:     parseInt(query.Get("page"), 1),
 		Size:     parseInt(query.Get("size"), 10),
 	}
+	if sortParam := strings.TrimSpace(query.Get("sort")); sortParam != "" {
+		filters.Sorts = parseSorts(sortParam)
+	}
 
 	result, err := h.service.SearchProducts(r.Context(), filters)
 	if err != nil {
@@ -86,4 +89,25 @@ func parseInt(value string, def int) int {
 		return def
 	}
 	return parsed
+}
+
+func parseSorts(raw string) []services.SortOption {
+	parts := strings.Split(raw, ",")
+	var result []services.SortOption
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		desc := false
+		field := part
+		if strings.HasPrefix(part, "-") {
+			desc = true
+			field = strings.TrimPrefix(part, "-")
+		} else if strings.HasPrefix(part, "+") {
+			field = strings.TrimPrefix(part, "+")
+		}
+		result = append(result, services.SortOption{Field: strings.ToLower(field), Desc: desc})
+	}
+	return result
 }

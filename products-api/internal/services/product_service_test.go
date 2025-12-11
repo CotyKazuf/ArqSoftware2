@@ -1,7 +1,10 @@
 package services
 
 import (
+	"bytes"
 	"errors"
+	"io"
+	"net/http"
 	"testing"
 	"time"
 
@@ -11,10 +14,26 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+type roundTripOK struct{}
+
+func (roundTripOK) RoundTrip(req *http.Request) (*http.Response, error) {
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewBufferString(`{"data":{}}`)),
+		Header:     make(http.Header),
+	}, nil
+}
+
+func newTestService(repo repositories.ProductRepository, publisher EventPublisher) *ProductService {
+	s := NewProductService(repo, publisher, "http://users-api")
+	s.httpClient = &http.Client{Transport: roundTripOK{}}
+	return s
+}
+
 func TestCreateProductSuccess(t *testing.T) {
 	repo := &mockProductRepo{}
 	publisher := &mockPublisher{}
-	service := NewProductService(repo, publisher)
+	service := newTestService(repo, publisher)
 
 	input := CreateProductInput{
 		Name:        "Luna",
@@ -28,9 +47,10 @@ func TestCreateProductSuccess(t *testing.T) {
 		Genero:      "unisex",
 		Marca:       "Aromas",
 		Imagen:      "https://example.com/luna.jpg",
+		OwnerID:     "owner-1",
 	}
 
-	product, err := service.CreateProduct(input)
+	product, err := service.CreateProduct(input, "")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -47,7 +67,7 @@ func TestCreateProductSuccess(t *testing.T) {
 
 func TestCreateProductValidationError(t *testing.T) {
 	repo := &mockProductRepo{}
-	service := NewProductService(repo, nil)
+	service := newTestService(repo, nil)
 
 	input := CreateProductInput{
 		Name:        "",
@@ -60,9 +80,10 @@ func TestCreateProductValidationError(t *testing.T) {
 		Genero:      "hombre",
 		Marca:       "Marca",
 		Imagen:      "ftp://invalid",
+		OwnerID:     "",
 	}
 
-	_, err := service.CreateProduct(input)
+	_, err := service.CreateProduct(input, "")
 	if err == nil {
 		t.Fatalf("expected validation error")
 	}
@@ -97,7 +118,7 @@ func TestUpdateProductSuccess(t *testing.T) {
 		findProduct: existing,
 	}
 	publisher := &mockPublisher{}
-	service := NewProductService(repo, publisher)
+	service := newTestService(repo, publisher)
 
 	input := UpdateProductInput{
 		Name:        "Nuevo",
@@ -113,7 +134,7 @@ func TestUpdateProductSuccess(t *testing.T) {
 		Imagen:      "https://example.com/nuevo.jpg",
 	}
 
-	updated, err := service.UpdateProduct(oid.Hex(), input)
+	updated, err := service.UpdateProduct(oid.Hex(), "owner-1", true, "", input)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -129,11 +150,17 @@ func TestUpdateProductSuccess(t *testing.T) {
 }
 
 func TestDeleteProduct(t *testing.T) {
-	repo := &mockProductRepo{}
+	productID := primitive.NewObjectID()
+	repo := &mockProductRepo{
+		findProduct: &models.Product{
+			ID:      productID,
+			OwnerID: "owner-1",
+		},
+	}
 	publisher := &mockPublisher{}
-	service := NewProductService(repo, publisher)
+	service := newTestService(repo, publisher)
 
-	err := service.DeleteProduct(primitive.NewObjectID().Hex())
+	err := service.DeleteProduct(productID.Hex(), "owner-1", true, "")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}

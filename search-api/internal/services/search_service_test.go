@@ -42,7 +42,7 @@ func TestEventProcessorRoutesEvents(t *testing.T) {
 	repo := &mockIndexRepo{}
 	cache := newMapCache()
 	service := NewSearchService(repo, cache, time.Minute)
-	processor := NewEventProcessor(service)
+	processor := NewEventProcessor(service, "")
 
 	createEvent := rabbitmq.ProductEvent{
 		Type: rabbitmq.EventProductCreated,
