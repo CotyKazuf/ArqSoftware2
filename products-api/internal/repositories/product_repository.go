@@ -165,7 +165,7 @@ func (r *MongoProductRepository) FindAll(filter ProductFilter, pagination Pagina
 
 	cursor, err := r.collection.Find(ctx, query, findOptions)
 	if err != nil {
-		return []models.Product{}, 0, nil
+		return nil, 0, fmt.Errorf("find products: %w", err)
 	}
 	defer cursor.Close(ctx)
 
