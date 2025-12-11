@@ -4,8 +4,8 @@ Repositorio de referencia basado en microservicios Go. Incluye autenticacion JWT
 
 ## Servicios
 - `users-api`: registro/login, hashing bcrypt, emision/validacion de JWT, roles `normal` y `admin` sobre MySQL (GORM). Seed automatico de admin (`ADMIN_EMAIL`, `ADMIN_DEFAULT_PASSWORD`).
-- `products-api`: CRUD de productos en MongoDB, validaciones, proteccion por rol `admin` para escritura y publicacion de eventos `product.*` en RabbitMQ.
-- `search-api`: consulta Solr (`products-core`), cachea respuestas con CCache + Memcached, consume eventos de productos para mantener el indice y expone flush de cache para admins.
+- `products-api`: CRUD de productos en MongoDB, validaciones, creacion disponible para cualquier usuario autenticado y escritura protegida por rol `admin` o dueno; valida owners contra users-api y publica eventos `product.*` en RabbitMQ.
+- `search-api`: consulta Solr (`products-core`), cachea respuestas con CCache + Memcached, soporta ordenamiento, consume eventos de productos para mantener el indice y expone flush de cache para admins.
 
 ## Levantar el entorno (Docker)
 1. Requisitos: Docker y docker-compose.
